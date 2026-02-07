@@ -1,23 +1,28 @@
 import { useState } from "react";
-import { supabase } from "../supabase";
+import { supabase } from "../lib/supabase";
 
 export default function Composer({ username }: { username: string }) {
   const [text, setText] = useState("");
 
-  const sendMessage = async () => {
-  if (!text.trim()) return;
+  const send = async () => {
+    if (!text.trim()) return;
 
-  const { error } = await supabase.from('messages').insert({
-    username: currentUser,
-    text,
-  });
+    // Save to DB (history)
+    await supabase.from("messages").insert({
+      username,
+      text,
+    });
 
-  if (error) {
-    console.error('Insert failed:', error);
-  } else {
-    setText('');
-  }
-};
+    // Broadcast realtime
+    const channel = supabase.channel("solchat-room");
+    await channel.send({
+      type: "broadcast",
+      event: "message",
+      payload: { username, text },
+    });
+
+    setText("");
+  };
 
   return (
     <div>

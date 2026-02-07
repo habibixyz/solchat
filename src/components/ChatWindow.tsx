@@ -1,51 +1,22 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../lib/supabase";
 
 type Message = {
-  id: number;
   username: string;
   text: string;
-  created_at: string;
 };
 
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([]);
 
-  // 1️⃣ Initial fetch
   useEffect(() => {
-    const loadMessages = async () => {
-      const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .order("created_at", { ascending: true });
+    const channel = supabase.channel("solchat-room");
 
-      if (!error && data) {
-        setMessages(data);
-      }
-    };
-
-    loadMessages();
-  }, []);
-
-  // 2️⃣ REALTIME SUBSCRIPTION (THIS IS THE FIX)
-  useEffect(() => {
-    const channel = supabase
-      .channel("messages-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-        },
-        (payload) => {
-          console.log("🔥 REALTIME MESSAGE:", payload.new);
-          setMessages((prev) => [...prev, payload.new as Message]);
-        }
-      )
-      .subscribe((status) => {
-        console.log("📡 SUB STATUS:", status);
-      });
+    channel
+      .on("broadcast", { event: "message" }, (payload) => {
+        setMessages((prev) => [...prev, payload.payload as Message]);
+      })
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
@@ -54,9 +25,9 @@ export default function ChatWindow() {
 
   return (
     <div>
-      {messages.map((m) => (
-        <div key={m.id}>
-          <strong>{m.username}</strong>: {m.text}
+      {messages.map((m, i) => (
+        <div key={i}>
+          <b>{m.username}</b>: {m.text}
         </div>
       ))}
     </div>
