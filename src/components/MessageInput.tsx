@@ -4,17 +4,20 @@ import { supabase } from "../supabase";
 export default function Composer({ username }: { username: string }) {
   const [text, setText] = useState("");
 
-  const send = async () => {
-    if (!text.trim()) return;
+  const sendMessage = async () => {
+  if (!text.trim()) return;
 
-    const { error } = await supabase.from("messages").insert({
-      username,
-      text,
-    });
+  const { error } = await supabase.from('messages').insert({
+    username: currentUser,
+    text,
+  });
 
-    if (error) console.error(error);
-    setText("");
-  };
+  if (error) {
+    console.error('Insert failed:', error);
+  } else {
+    setText('');
+  }
+};
 
   return (
     <div>

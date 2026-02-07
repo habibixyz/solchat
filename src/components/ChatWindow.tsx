@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../supabase";
+import { supabase } from "../supabaseClient";
 
 type Message = {
   id: number;
@@ -11,21 +11,26 @@ type Message = {
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([]);
 
-  // Load existing messages ONCE
+  // 1️⃣ Initial fetch
   useEffect(() => {
-    supabase
-      .from("messages")
-      .select("*")
-      .order("created_at", { ascending: true })
-      .then(({ data }) => {
-        if (data) setMessages(data);
-      });
+    const loadMessages = async () => {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (!error && data) {
+        setMessages(data);
+      }
+    };
+
+    loadMessages();
   }, []);
 
-  // REALTIME
+  // 2️⃣ REALTIME SUBSCRIPTION (THIS IS THE FIX)
   useEffect(() => {
     const channel = supabase
-      .channel("messages-feed")
+      .channel("messages-realtime")
       .on(
         "postgres_changes",
         {
@@ -34,11 +39,13 @@ export default function ChatWindow() {
           table: "messages",
         },
         (payload) => {
-          console.log("NEW MESSAGE:", payload.new);
+          console.log("🔥 REALTIME MESSAGE:", payload.new);
           setMessages((prev) => [...prev, payload.new as Message]);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("📡 SUB STATUS:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -49,7 +56,7 @@ export default function ChatWindow() {
     <div>
       {messages.map((m) => (
         <div key={m.id}>
-          <b>{m.username}</b>: {m.text}
+          <strong>{m.username}</strong>: {m.text}
         </div>
       ))}
     </div>
