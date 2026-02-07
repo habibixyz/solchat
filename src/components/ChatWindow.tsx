@@ -1,21 +1,48 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 type Message = {
+  id: number;
   username: string;
   text: string;
+  created_at: string;
 };
 
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
+  // 1️⃣ Load existing messages once
   useEffect(() => {
-    const channel = supabase.channel("solchat-room");
+    const loadMessages = async () => {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .order("created_at", { ascending: true });
 
-    channel
-      .on("broadcast", { event: "message" }, (payload) => {
-        setMessages((prev) => [...prev, payload.payload as Message]);
-      })
+      if (!error && data) {
+        setMessages(data);
+      }
+    };
+
+    loadMessages();
+  }, []);
+
+  // 2️⃣ Realtime subscription (INSERT only)
+  useEffect(() => {
+    const channel = supabase
+      .channel("public:messages")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        (payload) => {
+          setMessages((prev) => [...prev, payload.new as Message]);
+        }
+      )
       .subscribe();
 
     return () => {
@@ -23,13 +50,26 @@ export default function ChatWindow() {
     };
   }, []);
 
+  // 3️⃣ Auto-scroll to newest message
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   return (
-    <div>
-      {messages.map((m, i) => (
-        <div key={i}>
-          <b>{m.username}</b>: {m.text}
+    <div style={{ overflowY: "auto", flex: 1 }}>
+      {messages.map((m) => (
+        <div key={m.id} style={{ padding: "12px 0" }}>
+          <div style={{ color: "#7aa2ff", fontWeight: 600 }}>
+            {m.username}
+          </div>
+          <div>{m.text}</div>
+          <div style={{ fontSize: 12, opacity: 0.5 }}>
+            {new Date(m.created_at).toLocaleTimeString()}
+          </div>
         </div>
       ))}
+      <div ref={bottomRef} />
     </div>
   );
 }
+  

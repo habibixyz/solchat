@@ -1,33 +1,34 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
 
-export default function Composer({ username }: { username: string }) {
+export default function MessageInput({
+  currentUser,
+}: {
+  currentUser: string;
+}) {
   const [text, setText] = useState("");
 
   const send = async () => {
     if (!text.trim()) return;
 
-    // Save to DB (history)
     await supabase.from("messages").insert({
-      username,
+      username: currentUser,
       text,
-    });
-
-    // Broadcast realtime
-    const channel = supabase.channel("solchat-room");
-    await channel.send({
-      type: "broadcast",
-      event: "message",
-      payload: { username, text },
     });
 
     setText("");
   };
 
   return (
-    <div>
-      <input value={text} onChange={(e) => setText(e.target.value)} />
-      <button onClick={send}>Send</button>
+    <div style={{ display: "flex", gap: 8 }}>
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && send()}
+        placeholder="What's happening?"
+        style={{ flex: 1 }}
+      />
+      <button onClick={send}>Post</button>
     </div>
   );
 }
