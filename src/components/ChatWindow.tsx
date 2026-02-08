@@ -10,10 +10,11 @@ type Message = {
 
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const hasMountedRef = useRef(false);
 
-  // Initial fetch
+  // 1️⃣ Initial fetch (jump instantly to bottom ONCE)
   useEffect(() => {
     const fetchMessages = async () => {
       const { data } = await supabase
@@ -21,13 +22,21 @@ export default function ChatWindow() {
         .select("*")
         .order("created_at", { ascending: true });
 
-      if (data) setMessages(data as Message[]);
+      if (!data) return;
+
+      setMessages(data as Message[]);
+
+      // Jump to bottom once, no animation
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "auto" });
+        hasMountedRef.current = true;
+      });
     };
 
     fetchMessages();
   }, []);
 
-  // Realtime updates
+  // 2️⃣ Realtime updates
   useEffect(() => {
     const channel = supabase
       .channel("realtime-messages")
@@ -45,8 +54,10 @@ export default function ChatWindow() {
     };
   }, []);
 
-  // Smart auto-scroll (only if near bottom)
+  // 3️⃣ Smart auto-scroll (ONLY after first load)
   useEffect(() => {
+    if (!hasMountedRef.current) return;
+
     const el = containerRef.current;
     if (!el) return;
 
@@ -69,12 +80,10 @@ export default function ChatWindow() {
     >
       {messages.map((m) => (
         <div key={m.id} style={{ padding: "10px 0" }}>
-          {/* Username */}
           <div style={{ color: "#7aa2ff", fontWeight: 600 }}>
             {m.username}
           </div>
 
-          {/* Message text (long text safe) */}
           <div
             style={{
               wordWrap: "break-word",
@@ -86,7 +95,6 @@ export default function ChatWindow() {
             {m.text}
           </div>
 
-          {/* Time */}
           <div style={{ fontSize: 11, opacity: 0.5 }}>
             {new Date(m.created_at).toLocaleTimeString()}
           </div>
