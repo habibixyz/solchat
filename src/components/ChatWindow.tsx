@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../supabaseClient";
 
 type Message = {
   id: number;
@@ -11,34 +11,29 @@ type Message = {
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // 1️⃣ Load existing messages once
+  // Initial fetch
   useEffect(() => {
-    const loadMessages = async () => {
-      const { data, error } = await supabase
+    const fetchMessages = async () => {
+      const { data } = await supabase
         .from("messages")
         .select("*")
         .order("created_at", { ascending: true });
 
-      if (!error && data) {
-        setMessages(data);
-      }
+      if (data) setMessages(data as Message[]);
     };
 
-    loadMessages();
+    fetchMessages();
   }, []);
 
-  // 2️⃣ Realtime subscription (INSERT only)
+  // Realtime updates
   useEffect(() => {
     const channel = supabase
-      .channel("public:messages")
+      .channel("realtime-messages")
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-        },
+        { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
           setMessages((prev) => [...prev, payload.new as Message]);
         }
@@ -50,26 +45,55 @@ export default function ChatWindow() {
     };
   }, []);
 
-  // 3️⃣ Auto-scroll to newest message
+  // Smart auto-scroll (only if near bottom)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = containerRef.current;
+    if (!el) return;
+
+    const isNearBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+
+    if (isNearBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   return (
-    <div style={{ overflowY: "auto", flex: 1 }}>
+    <div
+      ref={containerRef}
+      style={{
+        overflowY: "auto",
+        padding: "8px 4px",
+        height: "100%",
+      }}
+    >
       {messages.map((m) => (
-        <div key={m.id} style={{ padding: "12px 0" }}>
+        <div key={m.id} style={{ padding: "10px 0" }}>
+          {/* Username */}
           <div style={{ color: "#7aa2ff", fontWeight: 600 }}>
             {m.username}
           </div>
-          <div>{m.text}</div>
-          <div style={{ fontSize: 12, opacity: 0.5 }}>
+
+          {/* Message text (long text safe) */}
+          <div
+            style={{
+              wordWrap: "break-word",
+              overflowWrap: "anywhere",
+              whiteSpace: "pre-wrap",
+              lineHeight: 1.4,
+            }}
+          >
+            {m.text}
+          </div>
+
+          {/* Time */}
+          <div style={{ fontSize: 11, opacity: 0.5 }}>
             {new Date(m.created_at).toLocaleTimeString()}
           </div>
         </div>
       ))}
+
       <div ref={bottomRef} />
     </div>
   );
 }
-  
