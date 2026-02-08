@@ -9,12 +9,27 @@ export default function ChatLayout() {
 
   return (
     <div style={styles.wrapper}>
-      {/* Feed */}
-      <ChatWindow />
+  {/* CA BAR */}
+  <div
+    style={{
+      textAlign: "center",
+      fontWeight: 700,
+      fontSize: 14,
+      padding: "10px 0",
+      marginBottom: 8,
+      color: "#ffffff",
+      letterSpacing: 0.4,
+      textShadow:
+        "0 0 6px rgba(255,255,255,0.6), 0 0 12px rgba(255,255,255,0.4)",
+      borderBottom: "1px solid rgba(255,255,255,0.08)",
+    }}
+  >
+    CA: GgKtQGBBEEjXbtaptvSmVFFDYiQrc6TGZMt2HS1cBAGS
+  </div>
 
-      {/* Composer */}
-      <MessageInput currentUser={currentUser} />
-    </div>
+  <ChatWindow />
+  <MessageInput currentUser={currentUser} />
+</div>
   );
 }
 
