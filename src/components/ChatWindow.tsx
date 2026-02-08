@@ -5,7 +5,6 @@ type Message = {
   id: number;
   username: string;
   text: string;
-  created_at: string;
 };
 
 export default function ChatWindow() {
@@ -14,29 +13,34 @@ export default function ChatWindow() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const hasMountedRef = useRef(false);
 
-  // 1️⃣ Initial fetch (jump instantly to bottom ONCE)
+  // Initial fetch
   useEffect(() => {
     const fetchMessages = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("messages")
-        .select("*")
-        .order("created_at", { ascending: true });
+        .select("id, username, text")
+        .order("id", { ascending: true });
 
-      if (!data) return;
+      if (error) {
+        console.error("Error fetching messages:", error);
+        return;
+      }
 
-      setMessages(data as Message[]);
+      if (data) {
+        setMessages(data as Message[]);
 
-      // Jump to bottom once, no animation
-      requestAnimationFrame(() => {
-        bottomRef.current?.scrollIntoView({ behavior: "auto" });
-        hasMountedRef.current = true;
-      });
+        // Jump to bottom once on load
+        requestAnimationFrame(() => {
+          bottomRef.current?.scrollIntoView({ behavior: "auto" });
+          hasMountedRef.current = true;
+        });
+      }
     };
 
     fetchMessages();
   }, []);
 
-  // 2️⃣ Realtime updates
+  // Realtime updates
   useEffect(() => {
     const channel = supabase
       .channel("realtime-messages")
@@ -44,7 +48,8 @@ export default function ChatWindow() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
+          const newMessage = payload.new as Message;
+          setMessages((prev) => [...prev, newMessage]);
         }
       )
       .subscribe();
@@ -54,7 +59,7 @@ export default function ChatWindow() {
     };
   }, []);
 
-  // 3️⃣ Smart auto-scroll (ONLY after first load)
+  // Smart auto-scroll (only if user is near bottom)
   useEffect(() => {
     if (!hasMountedRef.current) return;
 
@@ -73,36 +78,35 @@ export default function ChatWindow() {
     <div
       ref={containerRef}
       style={{
+        height: "100%",
         overflowY: "auto",
         padding: "8px 4px",
-        height: "100%",
       }}
     >
       {messages.map((m) => (
         <div
-  key={m.id}
-  style={{
-    padding: "12px 0",
-    borderBottom: "1px solid rgba(255,255,255,0.04)",
-  }}
->
-          <div style={{ color: "#7aa2ff", fontWeight: 600 }}>
+          key={m.id}
+          style={{
+            padding: "12px 0",
+            borderBottom: "1px solid rgba(255,255,255,0.04)",
+          }}
+        >
+          {/* Username */}
+          <div style={{ color: "#7aa2ff", fontWeight: 600, fontSize: 13 }}>
             {m.username}
           </div>
 
+          {/* Message */}
           <div
             style={{
-              wordWrap: "break-word",
-              overflowWrap: "anywhere",
+              marginTop: 2,
+              fontSize: 15,
+              lineHeight: 1.55,
               whiteSpace: "pre-wrap",
-              lineHeight: 1.4,
+              overflowWrap: "anywhere",
             }}
           >
             {m.text}
-          </div>
-
-          <div style={{ fontSize: 11, opacity: 0.5 }}>
-            {new Date(m.created_at).toLocaleTimeString()}
           </div>
         </div>
       ))}
