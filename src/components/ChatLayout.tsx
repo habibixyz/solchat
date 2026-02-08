@@ -22,7 +22,14 @@ const styles = {
   wrapper: {
     maxWidth: 720,
     margin: "0 auto",
-    padding: "16px",
-    paddingBottom: 100, // space for fixed composer
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    background: "rgba(255,255,255,0.03)",
+    borderRadius: 12,
+    padding: "12px 16px",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
   },
 };
+

@@ -79,7 +79,13 @@ export default function ChatWindow() {
       }}
     >
       {messages.map((m) => (
-        <div key={m.id} style={{ padding: "10px 0" }}>
+        <div
+  key={m.id}
+  style={{
+    padding: "12px 0",
+    borderBottom: "1px solid rgba(255,255,255,0.04)",
+  }}
+>
           <div style={{ color: "#7aa2ff", fontWeight: 600 }}>
             {m.username}
           </div>
