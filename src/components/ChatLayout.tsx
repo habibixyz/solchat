@@ -2,48 +2,67 @@ import ChatWindow from "./ChatWindow";
 import MessageInput from "./MessageInput";
 
 export default function ChatLayout() {
-  // Get current user from localStorage (profile page edits this)
   const currentUser =
     JSON.parse(localStorage.getItem("solchat_profile") || "{}")?.name ||
     "guest";
 
   return (
-    <div style={styles.wrapper}>
-  {/* CA BAR */}
-  <div
-    style={{
-      textAlign: "center",
-      fontWeight: 700,
-      fontSize: 14,
-      padding: "10px 0",
-      marginBottom: 8,
-      color: "#ffffff",
-      letterSpacing: 0.4,
-      textShadow:
-        "0 0 6px rgba(255,255,255,0.6), 0 0 12px rgba(255,255,255,0.4)",
-      borderBottom: "1px solid rgba(255,255,255,0.08)",
-    }}
-  >
-    CA: GgKtQGBBEEjXbtaptvSmVFFDYiQrc6TGZMt2HS1cBAGS
-  </div>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        background:
+          "linear-gradient(120deg, #05070f, #0b1225, #05070f)",
+        backgroundSize: "300% 300%",
+        animation: "bgMove 18s ease infinite",
+      }}
+    >
+      {/* CENTER CHAT COLUMN */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 720,
+          display: "flex",
+          flexDirection: "column",
+          background: "rgba(8,12,25,0.85)",
+          backdropFilter: "blur(14px)",
+          borderLeft: "1px solid rgba(255,255,255,0.06)",
+          borderRight: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        {/* CA HEADER */}
+        <div
+          style={{
+            padding: "14px 12px",
+            textAlign: "center",
+            fontWeight: 700,
+            color: "#fff",
+            letterSpacing: 0.4,
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            textShadow: "0 0 12px rgba(255,255,255,0.35)",
+          }}
+        >
+          CA: GgKtQGBBEEjXbtaptvSmVFFDYiQrc6TGZMt2HS1cBAGS
+        </div>
 
-  <ChatWindow />
-  <MessageInput currentUser={currentUser} />
-</div>
+        {/* CHAT */}
+        <div style={{ flex: 1, overflow: "hidden" }}>
+          <ChatWindow />
+        </div>
+
+        {/* INPUT */}
+        <MessageInput currentUser={currentUser} />
+      </div>
+
+      {/* INLINE KEYFRAMES — CANNOT FAIL */}
+      <style>{`
+        @keyframes bgMove {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `}</style>
+    </div>
   );
 }
-
-const styles = {
-  wrapper: {
-    maxWidth: 720,
-    margin: "0 auto",
-    width: "100%",
-    height: "100%",
-    display: "flex",
-    flexDirection: "column",
-    background: "rgba(255,255,255,0.03)",
-    borderRadius: 12,
-    padding: "12px 16px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
-  },
-} as const;

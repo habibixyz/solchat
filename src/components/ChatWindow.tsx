@@ -2,36 +2,35 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 type Message = {
-  id: string;          // UUID
+  id: string;
   username: string;
   text: string;
-  created_at: string;
 };
 
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  // 1️⃣ Initial fetch (stable)
+  // Initial load
   useEffect(() => {
-    const fetchMessages = async () => {
+    const loadMessages = async () => {
       const { data, error } = await supabase
         .from("messages")
-        .select("id, username, text, created_at")
+        .select("id, username, text")
         .order("created_at", { ascending: true });
 
       if (!error && data) {
         setMessages(data);
-        requestAnimationFrame(() => {
-          bottomRef.current?.scrollIntoView({ behavior: "auto" });
-        });
+        requestAnimationFrame(() =>
+          bottomRef.current?.scrollIntoView({ behavior: "auto" })
+        );
       }
     };
 
-    fetchMessages();
+    loadMessages();
   }, []);
 
-  // 2️⃣ Realtime INSERTS (deduped)
+  // Realtime inserts (deduped)
   useEffect(() => {
     const channel = supabase
       .channel("realtime-messages")
@@ -39,16 +38,16 @@ export default function ChatWindow() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
-          const newMessage = payload.new as Message;
+          const msg = payload.new as Message;
 
           setMessages((prev) => {
-            if (prev.some((m) => m.id === newMessage.id)) return prev;
-            return [...prev, newMessage];
+            if (prev.some((m) => m.id === msg.id)) return prev;
+            return [...prev, msg];
           });
 
-          requestAnimationFrame(() => {
-            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-          });
+          requestAnimationFrame(() =>
+            bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+          );
         }
       )
       .subscribe();
@@ -59,13 +58,7 @@ export default function ChatWindow() {
   }, []);
 
   return (
-    <div
-      style={{
-        flex: 1,
-        overflowY: "auto",
-        padding: "8px 6px",
-      }}
-    >
+    <div style={{ overflowY: "auto", flex: 1 }}>
       {messages.map((m) => (
         <div
           key={m.id}
@@ -77,12 +70,11 @@ export default function ChatWindow() {
           <div style={{ color: "#7aa2ff", fontWeight: 600 }}>
             {m.username}
           </div>
-
           <div
             style={{
-              wordWrap: "break-word",
               whiteSpace: "pre-wrap",
-              lineHeight: 1.45,
+              wordBreak: "break-word",
+              lineHeight: 1.4,
             }}
           >
             {m.text}

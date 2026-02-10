@@ -1,7 +1,8 @@
 import ChatLayout from "./components/ChatLayout";
 
 export default function App() {
-  return (
+  return <ChatLayout />;
+}
     <div
       style={{
         minHeight: "100vh",
@@ -40,5 +41,4 @@ export default function App() {
         </a>
       </div>
     </div>
-  );
-}
+
