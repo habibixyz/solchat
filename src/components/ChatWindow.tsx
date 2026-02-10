@@ -2,37 +2,28 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 type Message = {
-  id: number;
+  id: string;          // UUID
   username: string;
   text: string;
+  created_at: string;
 };
 
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-  const hasMountedRef = useRef(false);
 
-  // Initial fetch
+  // 1️⃣ Initial fetch (stable)
   useEffect(() => {
     const fetchMessages = async () => {
       const { data, error } = await supabase
         .from("messages")
-        .select("id, username, text")
-        .order("id", { ascending: true });
+        .select("id, username, text, created_at")
+        .order("created_at", { ascending: true });
 
-      if (error) {
-        console.error("Error fetching messages:", error);
-        return;
-      }
-
-      if (data) {
-        setMessages(data as Message[]);
-
-        // Jump to bottom once on load
+      if (!error && data) {
+        setMessages(data);
         requestAnimationFrame(() => {
           bottomRef.current?.scrollIntoView({ behavior: "auto" });
-          hasMountedRef.current = true;
         });
       }
     };
@@ -40,7 +31,7 @@ export default function ChatWindow() {
     fetchMessages();
   }, []);
 
-  // Realtime updates
+  // 2️⃣ Realtime INSERTS (deduped)
   useEffect(() => {
     const channel = supabase
       .channel("realtime-messages")
@@ -49,7 +40,15 @@ export default function ChatWindow() {
         { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
           const newMessage = payload.new as Message;
-          setMessages((prev) => [...prev, newMessage]);
+
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMessage.id)) return prev;
+            return [...prev, newMessage];
+          });
+
+          requestAnimationFrame(() => {
+            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+          });
         }
       )
       .subscribe();
@@ -59,51 +58,31 @@ export default function ChatWindow() {
     };
   }, []);
 
-  // Smart auto-scroll (only if user is near bottom)
-  useEffect(() => {
-    if (!hasMountedRef.current) return;
-
-    const el = containerRef.current;
-    if (!el) return;
-
-    const isNearBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-
-    if (isNearBottom) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-
   return (
     <div
-      ref={containerRef}
       style={{
-        height: "100%",
+        flex: 1,
         overflowY: "auto",
-        padding: "8px 4px",
+        padding: "8px 6px",
       }}
     >
       {messages.map((m) => (
         <div
           key={m.id}
           style={{
-            padding: "12px 0",
+            padding: "10px 0",
             borderBottom: "1px solid rgba(255,255,255,0.04)",
           }}
         >
-          {/* Username */}
-          <div style={{ color: "#7aa2ff", fontWeight: 600, fontSize: 13 }}>
+          <div style={{ color: "#7aa2ff", fontWeight: 600 }}>
             {m.username}
           </div>
 
-          {/* Message */}
           <div
             style={{
-              marginTop: 2,
-              fontSize: 15,
-              lineHeight: 1.55,
+              wordWrap: "break-word",
               whiteSpace: "pre-wrap",
-              overflowWrap: "anywhere",
+              lineHeight: 1.45,
             }}
           >
             {m.text}
