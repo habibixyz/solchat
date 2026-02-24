@@ -1,6 +1,9 @@
 # Solchat
 
-Solana-native social chat.
-Built with React + Vite.
+Crypto-native real-time chat with tipping.
 
-Live: https://solchat.fun
+Built with:
+- Next.js
+- TypeScript
+- Supabase
+Vision: A decentralized communication layer for crypto communities.
