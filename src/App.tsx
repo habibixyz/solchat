@@ -1,44 +1,48 @@
+import { Routes, Route, Link, useLocation } from "react-router-dom";
 import ChatLayout from "./components/ChatLayout";
+import GenesisPage from "./ritual/GenesisPage";
 
-export default function App() {
-  return <ChatLayout />;
-}
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        backgroundColor: "#0b0b0b",
-        color: "white",
-      }}
-    >
-      {/* CHAT AREA */}
-      <div style={{ flex: 1, padding: 20 }}>
-        <ChatLayout />
-      </div>
+function App() {
+  const location = useLocation();
+  const isChat = location.pathname === "/chat";
 
-      {/* FOOTER */}
-      <div
-        style={{
-          padding: "12px 0",
-          fontSize: 12,
-          opacity: 0.7,
-          textAlign: "center",
-          borderTop: "1px solid rgba(255,255,255,0.1)",
-        }}
-      >
-        © 2026 Solchat · Built by{" "}
-        <a
-          href="https://twitter.com/ritmir11"
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            color: "white",
-            textDecoration: "underline",
-          }}
+  return (
+    <div className="min-h-screen bg-black text-white flex flex-col">
+
+      {/* Persistent Header */}
+      <div className="fixed top-0 left-0 w-full flex justify-center py-6 z-50">
+        <Link
+          to="/chat"
+          className="text-lg tracking-[0.3em] text-zinc-400 hover:text-white transition"
         >
-          @ritmir11
-        </a>
+          SOLCHAT
+        </Link>
       </div>
-    </div>
 
+      {/* Page Content */}
+      <div className="flex-1 pt-20">
+        <Routes>
+          <Route path="/" element={<GenesisPage />} />
+          <Route path="/chat" element={<ChatLayout />} />
+        </Routes>
+      </div>
+
+      {/* Footer ONLY on chat */}
+      {isChat && (
+        <div className="text-center text-xs text-zinc-600 py-6 border-t border-white/10">
+          © 2026 Solchat · Built by{" "}
+          <a
+            href="https://twitter.com/ritmir11"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-white transition"
+          >
+            @ritmir11
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;

@@ -31,20 +31,8 @@ export default function ChatLayout() {
           borderRight: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        {/* CA HEADER */}
-        <div
-          style={{
-            padding: "14px 12px",
-            textAlign: "center",
-            fontWeight: 700,
-            color: "#fff",
-            letterSpacing: 0.4,
-            borderBottom: "1px solid rgba(255,255,255,0.08)",
-            textShadow: "0 0 12px rgba(255,255,255,0.35)",
-          }}
-        >
-          CA: GgKtQGBBEEjXbtaptvSmVFFDYiQrc6TGZMt2HS1cBAGS
-        </div>
+      <div className="text-center py-6 border-b border-white/5">
+</div>
 
         {/* CHAT */}
         <div style={{ flex: 1, overflow: "hidden" }}>
