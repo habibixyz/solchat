@@ -44,12 +44,12 @@ console.error("FULL ERROR:", error);
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 pt-24 relative">
+    <div className="min-h-screen w-full bg-black text-white flex items-center justify-center px-4 overflow-x-hidden">
       {/* Glow (non-blocking) */}
       <div className="absolute w-[900px] h-[900px] bg-indigo-600/10 blur-[200px] rounded-full pointer-events-none"></div>
 
       {/* Center Content */}
-      <div className="relative z-10 w-full max-w-xl text-center">
+      <div className="relative w-full max-w-md mx-auto text-center">
 
         {/* Title */}
         <h1 className="text-6xl md:text-7xl font-light tracking-[0.4em] mb-12">
