@@ -2,8 +2,8 @@ import { useState } from "react";
 import { supabase } from "../lib/supabase";
 
 function GenesisPage() {
-  const [wallet, setWallet] = useState("");
   const [twitter, setTwitter] = useState("");
+  const [wallet, setWallet] = useState("");
   const [loading, setLoading] = useState(false);
 
   const isValidSolanaAddress = (address: string) => {
@@ -31,8 +31,8 @@ function GenesisPage() {
       if (error.code === "23505") {
         alert("Wallet already submitted.");
       } else {
-        alert("Submission failed: " + error.message);
-console.error("FULL ERROR:", error);
+        alert("Submission failed.");
+        console.error(error);
       }
     } else {
       alert("Signal recorded.");
@@ -44,95 +44,83 @@ console.error("FULL ERROR:", error);
   };
 
   return (
-    <div className="min-h-screen w-full bg-black text-white flex items-center justify-center px-4 overflow-x-hidden">
-      {/* Glow (non-blocking) */}
-      <div className="absolute w-[900px] h-[900px] bg-indigo-600/10 blur-[200px] rounded-full pointer-events-none"></div>
+    <div className="min-h-screen bg-black text-white flex flex-col">
 
-      {/* Center Content */}
-      <div className="relative w-full max-w-md mx-auto text-center">
+      <div className="flex-1 flex items-center justify-center px-4">
+        <div className="w-full max-w-md text-center">
 
-        {/* Title */}
-        <h1 className="text-6xl md:text-7xl font-light tracking-[0.4em] mb-12">
-          NULL SIGIL
-        </h1>
+          <h1 className="text-5xl md:text-6xl font-light tracking-[0.4em] mb-10">
+            NULL SIGIL
+          </h1>
 
-        {/* Lore */}
-        <p className="text-zinc-500 text-sm tracking-wide mb-16">
-          The first signal precedes the system.
-        </p>
+          <p className="text-zinc-500 text-sm mb-8">
+            The first signal precedes the system.
+          </p>
 
-        {/* Twitter Ritual Link */}
-        <a
-          href="https://x.com/solchatfun/status/2026293419493245024?s=20"
-          target="_blank"
-          rel="noreferrer"
-          className="text-zinc-600 hover:text-white transition text-sm mb-14 block"
-        >
-          Complete the social signal →
-        </a>
+          <a
+            href="https://x.com/solchatfun/status/2026293419493245024?s=20"
+            target="_blank"
+            rel="noreferrer"
+            className="block text-sm text-zinc-500 hover:text-white transition mb-10"
+          >
+            Complete the social signal →
+          </a>
 
-        {/* Tasks */}
-        <div className="space-y-6 mb-16 text-left max-w-md mx-auto text-zinc-300">
-          <label className="flex items-center gap-3">
-            <input type="checkbox" className="accent-indigo-500" />
-            <span>Like the post</span>
-          </label>
+          <div className="space-y-5 text-left text-zinc-300 mb-10">
+            <label className="flex items-center gap-3">
+              <input type="checkbox" className="accent-indigo-500" />
+              Like the post
+            </label>
 
-          <label className="flex items-center gap-3">
-            <input type="checkbox" className="accent-indigo-500" />
-            <span>Comment: “I observe.”</span>
-          </label>
+            <label className="flex items-center gap-3">
+              <input type="checkbox" className="accent-indigo-500" />
+              Comment: “I observe.”
+            </label>
 
-          <label className="flex items-center gap-3">
-            <input type="checkbox" className="accent-indigo-500" />
-            <span>Quote with your interpretation</span>
-          </label>
-        </div>
+            <label className="flex items-center gap-3">
+              <input type="checkbox" className="accent-indigo-500" />
+              Quote with your interpretation
+            </label>
+          </div>
 
-        {/* Twitter Input */}
-        <div className="max-w-md mx-auto">
           <input
             type="text"
             placeholder="Twitter Username (without @)"
             value={twitter}
             onChange={(e) => setTwitter(e.target.value)}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-5 py-4 mb-6 focus:outline-none focus:border-indigo-500 transition"
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 mb-4 focus:outline-none focus:border-indigo-500 transition"
           />
 
-          {/* Wallet Input */}
           <input
             type="text"
             placeholder="Solana Wallet Address"
             value={wallet}
             onChange={(e) => setWallet(e.target.value)}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-5 py-4 mb-6 focus:outline-none focus:border-indigo-500 transition"
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 mb-6 focus:outline-none focus:border-indigo-500 transition"
           />
 
-          {/* Submit Button */}
           <button
-            type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="w-full bg-white text-black rounded-lg py-4 text-sm tracking-widest hover:opacity-90 transition disabled:opacity-50"
+            className="w-full bg-white text-black rounded-lg py-3 tracking-widest hover:opacity-90 transition disabled:opacity-50"
           >
             {loading ? "PROCESSING..." : "SUBMIT"}
           </button>
-        </div>
 
+        </div>
       </div>
 
-      {/* Footer */}
-      <div className="mt-16 text-xs text-zinc-700 tracking-wide text-center">
-  © 2026 · Solchat.fun · Built by{" "}
-  <a
-    href="https://twitter.com/ritmir11"
-    target="_blank"
-    rel="noreferrer"
-    className="hover:text-white transition"
-  >
-    @ritmir11
-  </a>
-</div>
+      <div className="text-center text-xs text-zinc-600 py-6">
+        © 2026 · Solchat.fun · Built by{" "}
+        <a
+          href="https://twitter.com/ritmir11"
+          target="_blank"
+          rel="noreferrer"
+          className="hover:text-white transition"
+        >
+          @ritmir11
+        </a>
+      </div>
 
     </div>
   );
