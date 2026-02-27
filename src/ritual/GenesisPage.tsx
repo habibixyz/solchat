@@ -28,13 +28,17 @@ function GenesisPage() {
       .insert([{ wallet, twitter }]);
 
     if (error) {
-      if (error.code === "23505") {
-        alert("Wallet already submitted.");
-      } else {
-        alert("Submission failed.");
-        console.error(error);
-      }
-    } else {
+  console.log("Supabase error:", error);
+
+  if (error.code === "23505" && error.message.includes("wallet")) {
+    alert("Wallet already submitted.");
+  } else {
+    alert("Submission failed: " + error.message);
+  }
+
+  setLoading(false);
+  return;
+} else {
       alert("Signal recorded.");
       setWallet("");
       setTwitter("");
