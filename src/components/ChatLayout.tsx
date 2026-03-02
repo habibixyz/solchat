@@ -20,7 +20,7 @@ function ChatLayout() {
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Load latest 20
+  // Load latest 20 once
   const fetchLatest = async () => {
     const { data, error } = await supabase
       .from("messages")
@@ -31,7 +31,7 @@ function ChatLayout() {
     if (error) return console.error(error);
 
     if (data) {
-      const reversed = data.reverse(); // so oldest → newest visually
+      const reversed = data.reverse();
       setMessages(reversed);
       setOldestDate(reversed[0]?.created_at || null);
     }
@@ -58,9 +58,42 @@ function ChatLayout() {
   };
 
   useEffect(() => {
-    fetchLatest();
-  }, []);
+  fetchLatest();
 
+  const channel = supabase
+    .channel("messages-realtime")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+      },
+      (payload) => {
+        const newMsg = payload.new as Message;
+
+        setMessages((prev) => {
+          // Prevent duplicates
+          if (prev.find((m) => m.id === newMsg.id)) return prev;
+
+          const updated = [...prev, newMsg];
+
+          if (updated.length > LIMIT) {
+            return updated.slice(updated.length - LIMIT);
+          }
+
+          return updated;
+        });
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
+
+  // Auto scroll to bottom smoothly
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop =
@@ -69,22 +102,18 @@ function ChatLayout() {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!newMessage.trim()) return;
+  if (!newMessage.trim()) return;
 
-    const { error } = await supabase
-      .from("messages")
-      .insert([
-        {
-          username: profileName,
-          text: newMessage,
-        },
-      ]);
+  const messageText = newMessage;
+  setNewMessage("");
 
-    if (error) return alert(error.message);
-
-    setNewMessage("");
-    fetchLatest();
-  };
+  await supabase.from("messages").insert([
+    {
+      username: profileName,
+      text: messageText,
+    },
+  ]);
+};
 
   const changeName = () => {
     const name = prompt("Enter display name:");
@@ -95,14 +124,12 @@ function ChatLayout() {
 
   return (
     <div className="chat-wrapper">
-
       <div className="chat-header">
         <span>GLOBAL SIGNAL</span>
         <button onClick={changeName}>{profileName}</button>
       </div>
 
       <div className="chat-feed" ref={scrollRef}>
-
         {oldestDate && (
           <div className="load-older" onClick={loadOlder}>
             Load older messages
@@ -133,7 +160,6 @@ function ChatLayout() {
         />
         <button onClick={handleSend}>Send</button>
       </div>
-
     </div>
   );
 }
