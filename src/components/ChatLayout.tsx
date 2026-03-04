@@ -2,7 +2,6 @@ import SwapDrawer from "./SwapDrawer";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { MINT_REGEX, TICKER_REGEX } from "../utils/tokenDetector";
-import { getTokenBySymbol, getTokenByMint } from "../utils/tokenRegistry";
 
 interface Message {
   id: string;

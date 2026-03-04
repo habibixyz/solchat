@@ -1,11 +1,7 @@
   import { Routes, Route, NavLink } from "react-router-dom";
-  import { useEffect } from "react";
-  import { loadTokenRegistry } from "./utils/tokenRegistry";
   import ChatLayout from "./components/ChatLayout";
   import GenesisPage from "./ritual/GenesisPage";
   import ManifestoPage from "./pages/ManifestoPage";
-
-  const TICKER_REGEX = /\$[A-Z]{2,10}/g;
 
   function App() {
 
