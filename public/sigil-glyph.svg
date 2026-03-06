@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+<g fill="none" stroke="#a78bfa" stroke-width="2">
+
+<circle cx="250" cy="250" r="200"></circle>
+<circle cx="250" cy="250" r="150"></circle>
+
+<polygon points="250,80 400,350 100,350"></polygon>
+<polygon points="250,420 400,150 100,150"></polygon>
+
+<line x1="50" y1="250" x2="450" y2="250"></line>
+<line x1="250" y1="50" x2="250" y2="450"></line>
+
+</g>
+</svg>

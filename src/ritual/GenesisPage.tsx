@@ -1,87 +1,62 @@
-import { useState } from "react";
-import { supabase } from "../lib/supabase";
+import useMintCountdown from "../utils/useMintCountdown";
 
 function GenesisPage() {
-  const [twitter, setTwitter] = useState("");
-  const [wallet, setWallet] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const isValidSolanaAddress = (address: string) => {
-    return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
-  };
-
-  const handleSubmit = async () => {
-    if (!wallet || !twitter) {
-      alert("Complete all fields.");
-      return;
-    }
-
-    if (!isValidSolanaAddress(wallet)) {
-      alert("Invalid Solana wallet address.");
-      return;
-    }
-
-    setLoading(true);
-
-    const { error } = await supabase
-      .from("null_genesis_allowlist")
-      .insert([{ wallet, twitter }]);
-
-    if (error) {
-      alert("Submission failed.");
-      setLoading(false);
-      return;
-    }
-
-    alert("Signal recorded.");
-    setTwitter("");
-    setWallet("");
-    setLoading(false);
-  };
+  const countdown = useMintCountdown();
 
   return (
-    <div className="genesis-shell">
-      <div className="genesis-card">
 
-        <h1 className="genesis-title">NULL SIGIL</h1>
+    <div className="mint-page">
 
-        <p className="genesis-sub">
+       {/* giant sigil */}
+      <div className="ritual-sigil"></div>
+
+      <div className="mint-card">
+
+        <h1 className="mint-title">NULL SIGIL</h1>
+
+        <p className="mint-sub">
           The first signal precedes the system.
         </p>
 
-        <a
-          href="https://x.com/solchatfun/status/2026293419493245024?s=20"
-          target="_blank"
-          rel="noreferrer"
-          className="genesis-link"
-        >
-          Complete the social signal →
-        </a>
+      <div className="sigil-loader">
 
-        <p className="genesis-instructions">
-  Like · Comment “I observe.” · Quote your interpretation
+  <span>⟁</span>
+  <span>⟁</span>
+  <span>⟁</span>
+
+</div>
+
+<p className="mint-countdown">
+  Mint opens in {countdown === "Loading..." ? "3 Days" : countdown}
 </p>
 
-        <input
-          type="text"
-          placeholder="Twitter Username (without @)"
-          value={twitter}
-          onChange={(e) => setTwitter(e.target.value)}
-        />
+        
 
-        <input
-          type="text"
-          placeholder="Solana Wallet Address"
-          value={wallet}
-          onChange={(e) => setWallet(e.target.value)}
-        />
+        <div className="mint-info">
 
-        <button onClick={handleSubmit}>
-          {loading ? "PROCESSING..." : "COMPLETE SIGNAL"}
+          <span>Supply: 1000</span>
+          <span>Public Mint: 900</span>
+          <span>Price: FREE</span>
+          <span>Max per wallet: 2</span>
+
+        </div>
+
+        <button
+          className="mint-button"
+          disabled={countdown !== "Mint Live"}
+        >
+
+          {countdown === "Mint Live"
+            ? "SUMMON SIGIL"
+            : "SIGIL DORMANT"}
+
         </button>
 
       </div>
+
     </div>
+
   );
 }
 
