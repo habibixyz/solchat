@@ -74,9 +74,8 @@ html, body {
 }
 
 .app-main {
-  flex: 1;
-  padding-top: 52px;
-  min-height: calc(100vh - 52px);
+  width: 100%;
+  height: calc(100vh - 120px);
 }
 
 .app-footer {
@@ -655,8 +654,9 @@ html, body {
   }
 
   .app-main {
-    padding-top: 56px;
-  }
+  width: 100%;
+  height: calc(100vh - 120px);
+}
 
   .app-header {
     height: 56px;
@@ -1932,4 +1932,47 @@ body::before{
 
   z-index:2;
 
+}
+
+/* ========================= */
+/* DISCOVER PAGE FIX */
+/* ========================= */
+
+.app-main:has(.solscreener-layout) {
+  padding-top: 52px;
+  height: calc(100vh - 52px);
+  display: block;
+}
+
+/* ============================= */
+/* DISCOVER FULL TERMINAL MODE */
+/* ============================= */
+
+.discover-root {
+  padding-top: 52px;
+  height: calc(100vh - 52px);
+  width: 100%;
+  overflow: hidden;
+}
+
+.discover-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr 320px;
+  height: 100%;
+  width: 100%;
+}
+
+.discover-left {
+  border-right: 1px solid rgba(255,255,255,0.05);
+  overflow-y: auto;
+  background: #020617;
+}
+
+.discover-center {
+  overflow: hidden;
+}
+
+.discover-right {
+  border-left: 1px solid rgba(255,255,255,0.05);
+  background: #020617;
 }

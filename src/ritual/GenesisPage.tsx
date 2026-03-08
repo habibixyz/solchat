@@ -28,7 +28,7 @@ function GenesisPage() {
 </div>
 
 <p className="mint-countdown">
-  Mint opens in {countdown === "Loading..." ? "3 Days" : countdown}
+  Sigil Awakening {countdown === "Loading..." ? "Soon" : countdown}
 </p>
 
         

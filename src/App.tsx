@@ -1,7 +1,10 @@
 import { Routes, Route, NavLink } from "react-router-dom";
+
 import ChatLayout from "./components/ChatLayout";
 import GenesisPage from "./ritual/GenesisPage";
 import ManifestoPage from "./pages/ManifestoPage";
+import DiscoverPage from "./pages/DiscoverPage";
+import TokenPage from "./pages/TokenPage";
 
 function App() {
   return (
@@ -19,14 +22,6 @@ function App() {
         <span>✶</span>
         <span>✦</span>
         <span>⟁</span>
-        <span>⟁</span>
-        <span>✦</span>
-        <span>△</span>
-        <span>✶</span>
-        <span>◇</span>
-        <span>⟁</span>
-        <span>✦</span>
-        <span>△</span>
       </div>
 
       {/* HEADER */}
@@ -41,18 +36,23 @@ function App() {
             <NavLink to="/">Sigil</NavLink>
             <NavLink to="/chat">Chat</NavLink>
             <NavLink to="/manifesto">Manifesto</NavLink>
+            <NavLink to="/discover">Discover</NavLink>
           </div>
 
         </div>
       </header>
 
       {/* MAIN */}
-      <main className="app-main">
+      <main className="app-main discover-root">
+
         <Routes>
           <Route path="/" element={<GenesisPage />} />
           <Route path="/chat" element={<ChatLayout />} />
           <Route path="/manifesto" element={<ManifestoPage />} />
+          <Route path="/discover" element={<DiscoverPage />} />
+          <Route path="/token/:address" element={<TokenPage />} />
         </Routes>
+
       </main>
 
       {/* FOOTER */}
