@@ -1976,3 +1976,24 @@ body::before{
   border-left: 1px solid rgba(255,255,255,0.05);
   background: #020617;
 }
+/* Fix Solchat page layout */
+
+html, body, #root {
+  height: 100%;
+}
+
+.solchat-page {
+  height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-feed {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.chat-input {
+  flex-shrink: 0;
+}

@@ -21,6 +21,7 @@ export default function ChatWindow() {
 
       if (!error && data) {
         setMessages(data);
+
         requestAnimationFrame(() =>
           bottomRef.current?.scrollIntoView({ behavior: "auto" })
         );
@@ -30,7 +31,7 @@ export default function ChatWindow() {
     loadMessages();
   }, []);
 
-  // Realtime inserts (deduped)
+  // Realtime messages
   useEffect(() => {
     const channel = supabase
       .channel("realtime-messages")
@@ -58,23 +59,31 @@ export default function ChatWindow() {
   }, []);
 
   return (
-    <div style={{ overflowY: "auto", flex: 1 }}>
+    <div
+      style={{
+        overflowY: "auto",
+        flex: 1,
+        minHeight: 0,
+        padding: "20px"
+      }}
+    >
       {messages.map((m) => (
         <div
           key={m.id}
           style={{
             padding: "10px 0",
-            borderBottom: "1px solid rgba(255,255,255,0.04)",
+            borderBottom: "1px solid rgba(255,255,255,0.04)"
           }}
         >
           <div style={{ color: "#7aa2ff", fontWeight: 600 }}>
             {m.username}
           </div>
+
           <div
             style={{
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
-              lineHeight: 1.4,
+              lineHeight: 1.4
             }}
           >
             {m.text}

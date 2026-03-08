@@ -160,8 +160,8 @@ const renderText = (text: string) => {
 
   // ---------------- UI ----------------
   return (
-  <div className="chat-wrapper">
-
+  <div className="chat-wrapper solchat-page">
+    
     {/* Header */}
     <div className="chat-header">
       <span>GLOBAL SIGNAL</span>
