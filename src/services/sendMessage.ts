@@ -28,7 +28,9 @@ export async function sendPaidMessage(
   const { error } = await supabase.from("messages").insert({
     username: profileName,
     text: messageText,
+    tx_signature: signature,
   });
+  
 
   if (error) throw new Error(`Failed to save message: ${error.message}`);
 
