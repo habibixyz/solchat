@@ -1,4 +1,4 @@
-export default function TransactionList({ txs = [] }: { txs?: any[] }) {
+export default function TransactionList({ txs = [] }) {
   return (
     <div className="mt-8">
       <h2 className="text-lg mb-4">Recent Transactions</h2>
