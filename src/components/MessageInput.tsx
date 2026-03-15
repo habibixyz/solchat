@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { sendPaidMessage } from "../services/sendMessage";
 
 export default function MessageInput({
   currentUser,
@@ -7,16 +8,30 @@ export default function MessageInput({
   currentUser: string;
 }) {
   const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const { connection } = useConnection();
+  const wallet = useWallet();
 
   const send = async () => {
     if (!text.trim()) return;
 
-    const { error } = await supabase.from("messages").insert({
-      username: currentUser,
-      text: text.trim(),
-    });
+    if (!wallet.publicKey) {
+      alert("Connect wallet first");
+      return;
+    }
 
-    if (!error) setText("");
+    try {
+      setLoading(true);
+      // ✅ Pass text into sendPaidMessage — it handles saving + AI trigger
+      await sendPaidMessage(wallet, connection, text.trim());
+      setText(""); // clear only on success
+    } catch (err) {
+      console.error(err);
+      alert("Payment failed or cancelled");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -24,7 +39,8 @@ export default function MessageInput({
       <input
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="What's happening?"
+        placeholder="Type a message... use @ai to ask the AI"
+        disabled={loading}
         style={{
           flex: 1,
           padding: "10px",
@@ -32,20 +48,25 @@ export default function MessageInput({
           border: "none",
           background: "#1f2937",
           color: "white",
+          opacity: loading ? 0.6 : 1,
         }}
-        onKeyDown={(e) => e.key === "Enter" && send()}
+        onKeyDown={(e) => e.key === "Enter" && !loading && send()}
       />
+
       <button
         onClick={send}
+        disabled={loading}
         style={{
           padding: "10px 16px",
           borderRadius: 8,
-          background: "#6366f1",
+          background: loading ? "#4b5563" : "#6366f1",
           color: "white",
           border: "none",
+          cursor: loading ? "not-allowed" : "pointer",
+          minWidth: 120,
         }}
       >
-        Post
+        {loading ? "Posting..." : "Post (0.001 SOL)"}
       </button>
     </div>
   );

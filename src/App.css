@@ -1,9 +1,7 @@
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { useWallet } from "@solana/wallet-adapter-react";
+
 import GenesisPage from "./ritual/GenesisPage";
 
 function App() {
-  const { publicKey, connected } = useWallet();
 
   return (
     <div
@@ -18,8 +16,6 @@ function App() {
       }}
     >
       <h1>🟣 Solchat</h1>
-
-      <WalletMultiButton />
 
       {connected && (
         <p style={{ fontSize: "14px" }}>

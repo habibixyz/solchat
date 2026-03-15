@@ -1,0 +1,29 @@
+{
+  "tokenStandard": "nft",
+  "number": 1000,
+  "symbol": "",
+  "sellerFeeBasisPoints": 500,
+  "isMutable": true,
+  "isSequential": false,
+  "creators": [
+    {
+      "address": "GV6T1GB7WqnMxvtgEjTw6hBd1LNrBE3DkDYRBEAGwAPx",
+      "share": 100
+    }
+  ],
+  "uploadMethod": "bundlr",
+  "ruleSet": null,
+  "awsConfig": null,
+  "sdriveApiKey": null,
+  "pinataConfig": null,
+  "hiddenSettings": null,
+  "guards": {
+    "default": {
+      "mintLimit": {
+        "id": 1,
+        "limit": 1
+      }
+    }
+  },
+  "maxEditionSupply": null
+}
