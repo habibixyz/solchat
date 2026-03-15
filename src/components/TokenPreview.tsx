@@ -1,7 +1,7 @@
 import PriceChart from "./PriceChart";
 import TransactionList from "./TransactionList";
 
-export default function TokenPreview({ token }) {
+export default function TokenPreview({ token }: { token: any }) {
 
   if (!token) {
     return <div style={{padding:"20px"}}>Select a token</div>;
