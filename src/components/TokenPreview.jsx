@@ -28,7 +28,7 @@ export default function TokenPreview({ token }: { token: any }) {
 
       <PriceChart pool={token} />
 
-      <TransactionList pool={token} />
+      <TransactionList txs={[]} />
 
     </div>
   );

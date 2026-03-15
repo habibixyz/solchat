@@ -1,12 +1,8 @@
-export default function TransactionList({ txs }) {
-
+export default function TransactionList({ txs = [] }: { txs?: any[] }) {
   return (
     <div className="mt-8">
-
       <h2 className="text-lg mb-4">Recent Transactions</h2>
-
       <table className="w-full text-sm">
-
         <thead className="text-slate-400 border-b border-slate-800">
           <tr>
             <th>Wallet</th>
@@ -15,10 +11,9 @@ export default function TransactionList({ txs }) {
             <th>Time</th>
           </tr>
         </thead>
-
         <tbody>
-          {txs.slice(0, 20).map(tx => (
-            <tr key={tx.txHash} className="border-b border-slate-800">
+          {txs.slice(0, 20).map((tx, i) => (
+            <tr key={i} className="border-b border-slate-800">
               <td>{tx.owner}</td>
               <td>{tx.side}</td>
               <td>{tx.amount}</td>
@@ -26,9 +21,7 @@ export default function TransactionList({ txs }) {
             </tr>
           ))}
         </tbody>
-
       </table>
-
     </div>
   );
 }
