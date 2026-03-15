@@ -9,6 +9,8 @@ const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const AI_RATE_LIMIT = 5; // per hour per user
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -22,6 +24,25 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // ✅ Rate limit check — max 5 @ai messages per user per hour
+    const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
+
+    const { count } = await supabase
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .eq("username", username)
+      .ilike("text", "%@ai%")
+      .gte("created_at", oneHourAgo);
+
+    if (count && count >= AI_RATE_LIMIT) {
+      // Save a rate limit message to feed so user sees it
+      await supabase.from("messages").insert({
+        username: "AI",
+        text: `@${username} — you've reached the limit of ${AI_RATE_LIMIT} @ai messages per hour. come back later.`,
+      });
+      return new Response("rate limited", { status: 429, headers: corsHeaders });
+    }
 
     const { data: history } = await supabase
       .from("messages")
@@ -68,8 +89,6 @@ Always respond directly to what was asked. No fluff.`,
     });
 
     const aiData = await response.json();
-    console.log("Groq response:", JSON.stringify(aiData));
-
     const aiText = aiData?.choices?.[0]?.message?.content;
     if (!aiText) throw new Error(`Groq failed: ${JSON.stringify(aiData)}`);
 
