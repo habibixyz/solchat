@@ -41,7 +41,7 @@ export default function ChatLayout() {
         .from("usernames")
         .select("username")
         .eq("wallet_address", walletAddr)
-        .single();
+        .maybeSingle();
 
       if (data?.username) {
         setProfileName(data.username);

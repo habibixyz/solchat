@@ -1,42 +1,29 @@
 import { useEffect, useState } from "react";
 
 export default function useMintCountdown() {
-
   const [timeLeft, setTimeLeft] = useState("Loading...");
 
   useEffect(() => {
+    // Set your actual mint date here
+    const mintDate = new Date("2026-04-01T18:00:00Z");
 
-    const loadCountdown = async () => {
+    const interval = setInterval(() => {
+      const seconds = Math.floor((mintDate.getTime() - Date.now()) / 1000);
 
-      const res = await fetch("http://localhost:4000/mint-status");
-      const data = await res.json();
+      if (seconds <= 0) {
+        setTimeLeft("Mint Live");
+        clearInterval(interval);
+        return;
+      }
 
-      let seconds = data.secondsRemaining;
+      const days = Math.floor(seconds / 86400);
+      const hours = Math.floor((seconds % 86400) / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      setTimeLeft(`${days}d ${hours}h ${mins}m`);
+    }, 1000);
 
-      const interval = setInterval(() => {
-
-        if (seconds <= 0) {
-          setTimeLeft("Mint Live");
-          clearInterval(interval);
-          return;
-        }
-
-        const days = Math.floor(seconds / 86400);
-        const hours = Math.floor((seconds % 86400) / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-
-        setTimeLeft(`${days}d ${hours}h ${minutes}m`);
-
-        seconds--;
-
-      }, 1000);
-
-    };
-
-    loadCountdown();
-
+    return () => clearInterval(interval);
   }, []);
 
   return timeLeft;
-
 }

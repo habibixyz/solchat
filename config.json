@@ -1,13 +1,13 @@
 {
   "tokenStandard": "nft",
   "number": 1000,
-  "symbol": "",
+  "symbol": "NSIGIL",
   "sellerFeeBasisPoints": 500,
   "isMutable": true,
   "isSequential": false,
   "creators": [
     {
-      "address": "GV6T1GB7WqnMxvtgEjTw6hBd1LNrBE3DkDYRBEAGwAPx",
+      "address": "2aeU3JNrZrD25bX9ur4uY9eniEUmTuebquvLQwxE3xRQ",
       "share": 100
     }
   ],
