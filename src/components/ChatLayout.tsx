@@ -181,9 +181,9 @@ export default function ChatLayout() {
       setNewMessage("");
       await sendPaidMessage(wallet, connection, messageText, profileName);
     } catch (err: any) {
-      console.error(err);
+      console.error("PAYMENT ERROR:", err);
       setNewMessage(messageText);
-      alert("Payment failed or cancelled");
+      alert(`Failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
