@@ -6,7 +6,6 @@ import {
   mintV2,
   safeFetchCandyGuard,
 } from "@metaplex-foundation/mpl-candy-machine";
-import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { publicKey, generateSigner, transactionBuilder } from "@metaplex-foundation/umi";
 import { setComputeUnitLimit } from "@metaplex-foundation/mpl-toolbox";
 
@@ -24,7 +23,6 @@ export const mintNFT = async (walletAdapter: any) => {
     const umi = createUmi(RPC)
       .use(walletAdapterIdentity(walletAdapter))
       .use(mplCandyMachine())
-      .use(mplTokenMetadata());
 
     const candyMachineId = publicKey(CANDY_MACHINE_ID);
 
