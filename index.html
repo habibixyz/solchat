@@ -5,6 +5,12 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+
+    <!-- Buffer polyfill — must load before everything -->
+    <script>window.global = window;</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/buffer/6.0.3/buffer.min.js"></script>
+<script>window.Buffer = Buffer;</script>
+
     <script src="https://plugin.jup.ag/plugin-v1.js" data-preload defer></script>
     <title>solchat</title>
   </head>

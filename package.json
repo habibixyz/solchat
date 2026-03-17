@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@jup-ag/plugin": "^1.0.13",
     "@jup-ag/terminal": "^4.5.7",
     "@metaplex-foundation/js": "^0.20.1",
@@ -28,11 +29,15 @@
     "buffer": "^6.0.3",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "https-browserify": "^1.0.0",
     "lightweight-charts": "^5.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1",
-    "recharts": "^3.8.0"
+    "recharts": "^3.8.0",
+    "stream-browserify": "^3.0.0",
+    "stream-http": "^3.2.0",
+    "url": "^0.11.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
