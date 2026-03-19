@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 
@@ -10,7 +11,6 @@ type Message = {
 // Shorten wallet addresses for display
 function formatUsername(username: string) {
   if (username === "AI") return "🤖 SolChat AI";
-  // If it looks like a wallet address (long, no spaces)
   if (username.length > 20 && !username.includes(" ")) {
     return `${username.slice(0, 4)}...${username.slice(-4)}`;
   }
@@ -20,6 +20,7 @@ function formatUsername(username: string) {
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate(); // ← ADDED
 
   // Initial load
   useEffect(() => {
@@ -85,13 +86,8 @@ export default function ChatWindow() {
               borderBottom: "1px solid rgba(255,255,255,0.04)",
               borderRadius: isAI ? 8 : 0,
               marginBottom: isAI ? 8 : 0,
-              // ✅ AI messages get a subtle highlight, user messages unchanged
-              background: isAI
-                ? "rgba(99, 102, 241, 0.08)"
-                : "transparent",
-              borderLeft: isAI
-                ? "2px solid #6366f1"
-                : "none",
+              background: isAI ? "rgba(99, 102, 241, 0.08)" : "transparent",
+              borderLeft: isAI ? "2px solid #6366f1" : "none",
             }}
           >
             <div
@@ -102,7 +98,18 @@ export default function ChatWindow() {
                 marginBottom: 2,
               }}
             >
-              {formatUsername(m.username)}
+              {/* ── CHANGED: AI username stays plain, others are clickable ── */}
+              {isAI ? (
+                formatUsername(m.username)
+              ) : (
+                <span
+                  onClick={() => navigate(`/profile/${m.username}`)}
+                  style={{ cursor: "pointer" }}
+                  title={`View @${m.username}'s profile`}
+                >
+                  {formatUsername(m.username)}
+                </span>
+              )}
             </div>
 
             <div

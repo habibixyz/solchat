@@ -1,0 +1,237 @@
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { supabase } from '../lib/supabase';
+import { getEthosProfile, LEVEL_COLOR } from '../services/ethosService';
+import type { EthosProfile } from '../services/ethosService';
+
+interface UserRecord {
+  wallet_address: string;
+  username: string;
+  created_at: string;
+  twitter_handle: string | null;
+}
+
+export default function ProfilePage() {
+  const { username } = useParams<{ username: string }>();
+  const navigate = useNavigate();
+  const { publicKey } = useWallet();
+
+  const [user, setUser] = useState<UserRecord | null>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [msgCount, setMsgCount] = useState(0);
+  const [ethos, setEthos] = useState<EthosProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editingTwitter, setEditingTwitter] = useState(false);
+  const [twitterInput, setTwitterInput] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const isOwner = !!(publicKey && user && publicKey.toBase58() === user.wallet_address);
+  const score = (ethos as any)?.score?.score ?? (ethos as any)?.score ?? null;
+  const level = (ethos as any)?.score?.level ?? (ethos as any)?.level ?? null;
+  const levelColor = level ? (LEVEL_COLOR[level] ?? '#7c5cff') : '#7c5cff';
+
+  useEffect(() => {
+    if (!username) return;
+    async function load() {
+      setLoading(true);
+      const { data } = await supabase.from('usernames').select('*').eq('username', username).maybeSingle();
+      if (!data) { setLoading(false); return; }
+      setUser(data);
+      setTwitterInput(data.twitter_handle ?? '');
+      const { data: msgs } = await supabase.from('messages').select('*').eq('username', username).order('created_at', { ascending: false });
+      setMessages(Array.isArray(msgs) ? msgs : []);
+      const { count } = await supabase.from('messages').select('id', { count: 'exact', head: true }).eq('username', username);
+      setMsgCount(count ?? 0);
+      if (data.twitter_handle) {
+        try {
+          const res = await getEthosProfile(data.twitter_handle);
+          const profile = Array.isArray(res) ? res[0] : res;
+          setEthos(profile ?? null);
+        } catch { setEthos(null); }
+      }
+      setLoading(false);
+    }
+    load();
+  }, [username]);
+
+  async function saveTwitter() {
+    if (!user) return;
+    setSaving(true);
+    const handle = twitterInput.replace(/^@/, '').trim();
+    await supabase.from('usernames').update({ twitter_handle: handle || null }).eq('wallet_address', user.wallet_address);
+    setUser({ ...user, twitter_handle: handle || null });
+    setEditingTwitter(false);
+    setSaving(false);
+    if (handle) {
+      try {
+        const res = await getEthosProfile(handle);
+        setEthos(Array.isArray(res) ? res[0] : res);
+      } catch { setEthos(null); }
+    }
+  }
+
+  function shortWallet(addr?: string) {
+    if (!addr) return '';
+    return `${addr.slice(0, 5)}...${addr.slice(-5)}`;
+  }
+
+  function timeAgo(d: string) {
+    const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+    if (m < 1) return 'now';
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h`;
+    return `${Math.floor(h / 24)}d`;
+  }
+
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ color: 'rgba(255,255,255,0.15)', fontFamily: 'ui-monospace,monospace', fontSize: 11, letterSpacing: 4 }}>LOADING...</div>
+    </div>
+  );
+
+  if (!user) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
+      <div style={{ fontSize: 40, opacity: 0.1 }}>⟁</div>
+      <div style={{ color: 'rgba(255,255,255,0.2)', fontFamily: 'ui-monospace,monospace' }}>user not found</div>
+      <button onClick={() => navigate('/chat')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontFamily: 'ui-monospace,monospace' }}>← back</button>
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight: '100vh', padding: '24px 20px 60px', position: 'relative' }}>
+
+      {/* ambient glows */}
+      <div style={{ position: 'fixed', top: 0, left: '20%', width: 600, height: 400, background: 'radial-gradient(circle, rgba(0,247,255,0.04) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'fixed', bottom: 0, right: '10%', width: 500, height: 400, background: 'radial-gradient(circle, rgba(124,92,255,0.05) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+
+      <div style={{ maxWidth: 1100, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+
+        <button onClick={() => navigate('/chat')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', fontFamily: 'ui-monospace,monospace', fontSize: 11, letterSpacing: 1, marginBottom: 20, padding: 0 }}>
+          ← back
+        </button>
+
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+
+          {/* ── LEFT COLUMN ── */}
+          <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* Profile card */}
+            <div style={{ background: 'rgba(10,18,40,0.85)', border: '1px solid rgba(120,150,255,0.15)', borderRadius: 18, backdropFilter: 'blur(18px)', boxShadow: '0 0 40px rgba(80,120,255,0.1)', overflow: 'hidden' }}>
+              {/* top accent */}
+              <div style={{ height: 2, background: `linear-gradient(90deg, transparent, ${levelColor}88, transparent)` }} />
+
+              <div style={{ padding: '20px 20px 16px' }}>
+                {/* Avatar */}
+                <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(0,247,255,0.08)', border: `1px solid ${levelColor}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, color: '#00f7ff', fontFamily: 'ui-monospace,monospace', marginBottom: 14, boxShadow: `0 0 20px ${levelColor}22` }}>
+                  {user.username.slice(0, 2).toUpperCase()}
+                </div>
+
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontFamily: 'ui-monospace,monospace', marginBottom: 4, textShadow: '0 0 16px rgba(0,247,255,0.2)' }}>
+                  @{user.username}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                  <span style={{ color: '#9945FF', fontSize: 12 }}>◎</span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.22)', fontFamily: 'ui-monospace,monospace' }}>{shortWallet(user.wallet_address)}</span>
+                  <button onClick={() => { navigator.clipboard.writeText(user.wallet_address); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                    style={{ background: 'none', border: '1px solid rgba(120,150,255,0.2)', borderRadius: 5, color: 'rgba(159,179,255,0.4)', fontSize: 9, padding: '1px 6px', cursor: 'pointer', fontFamily: 'ui-monospace,monospace' }}>
+                    {copied ? '✓' : 'copy'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', fontFamily: 'ui-monospace,monospace' }}>{msgCount}</div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', fontFamily: 'ui-monospace,monospace', letterSpacing: 1 }}>SIGNALS</div>
+                  </div>
+                  <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: levelColor, fontFamily: 'ui-monospace,monospace', textShadow: `0 0 12px ${levelColor}66` }}>{score ?? '-'}</div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', fontFamily: 'ui-monospace,monospace', letterSpacing: 1 }}>CRED</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Ethos card */}
+            <div style={{ background: 'rgba(10,18,40,0.85)', border: '1px solid rgba(120,150,255,0.15)', borderRadius: 18, backdropFilter: 'blur(18px)', padding: '18px 20px' }}>
+              <div style={{ fontSize: 9, color: 'rgba(0,247,255,0.3)', fontFamily: 'ui-monospace,monospace', letterSpacing: 3, marginBottom: 14 }}>⬡ ETHOS REPUTATION</div>
+
+              {score !== null && level ? (
+                <>
+                  <div style={{ textAlign: 'center', padding: '10px 0 14px' }}>
+                    <div style={{ fontSize: 42, fontWeight: 700, color: levelColor, fontFamily: 'ui-monospace,monospace', textShadow: `0 0 30px ${levelColor}66`, lineHeight: 1 }}>{score}</div>
+                    <div style={{ fontSize: 13, color: levelColor, fontFamily: 'ui-monospace,monospace', textTransform: 'capitalize', marginTop: 6, letterSpacing: 2 }}>{level}</div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: 'ui-monospace,monospace', marginTop: 4 }}>credibility score</div>
+                    <a href={`https://app.ethos.network/profile/x/${user.twitter_handle}`} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: 10, color: 'rgba(0,247,255,0.35)', fontFamily: 'ui-monospace,monospace', textDecoration: 'none', marginTop: 10, display: 'block' }}>
+                      view on ethos →
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <div style={{ color: 'rgba(255,255,255,0.15)', fontSize: 11, fontFamily: 'ui-monospace,monospace' }}>
+                  {user.twitter_handle ? 'not on ethos yet' : 'no twitter linked'}
+                </div>
+              )}
+
+              {/* Twitter link */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 12, marginTop: 4 }}>
+                {user.twitter_handle && !editingTwitter && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: 'ui-monospace,monospace' }}>𝕏 @{user.twitter_handle}</span>
+                    {isOwner && <button onClick={() => setEditingTwitter(true)} style={{ background: 'none', border: '1px solid rgba(120,150,255,0.2)', borderRadius: 6, color: '#9fb3ff', fontSize: 10, padding: '2px 8px', cursor: 'pointer', fontFamily: 'ui-monospace,monospace' }}>change</button>}
+                  </div>
+                )}
+                {!user.twitter_handle && !editingTwitter && isOwner && (
+                  <button onClick={() => setEditingTwitter(true)} style={{ background: 'none', border: '1px solid rgba(120,150,255,0.2)', borderRadius: 8, color: '#9fb3ff', fontSize: 11, padding: '6px 12px', cursor: 'pointer', fontFamily: 'ui-monospace,monospace', width: '100%' }}>
+                    + link twitter
+                  </button>
+                )}
+                {editingTwitter && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <input value={twitterInput} onChange={e => setTwitterInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && saveTwitter()}
+                      placeholder="twitter username" autoFocus
+                      style={{ background: 'rgba(20,30,60,0.6)', border: '1px solid rgba(120,150,255,0.2)', borderRadius: 8, color: '#fff', fontSize: 12, fontFamily: 'ui-monospace,monospace', padding: '7px 10px', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={saveTwitter} disabled={saving} style={{ flex: 1, background: 'rgba(124,92,255,0.2)', border: '1px solid rgba(124,92,255,0.35)', borderRadius: 8, color: '#a78bfa', fontSize: 11, padding: '6px', cursor: 'pointer', fontFamily: 'ui-monospace,monospace' }}>{saving ? '...' : 'save'}</button>
+                      <button onClick={() => setEditingTwitter(false)} style={{ flex: 1, background: 'none', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: 'rgba(255,255,255,0.3)', fontSize: 11, padding: '6px', cursor: 'pointer', fontFamily: 'ui-monospace,monospace' }}>cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* ── RIGHT COLUMN — SIGNALS FEED ── */}
+          <div style={{ flex: 1, background: 'rgba(10,18,40,0.85)', border: '1px solid rgba(120,150,255,0.15)', borderRadius: 18, backdropFilter: 'blur(18px)', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 9, color: 'rgba(0,247,255,0.35)', fontFamily: 'ui-monospace,monospace', letterSpacing: 3 }}>▸ SIGNALS</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: 'ui-monospace,monospace' }}>{msgCount} total</div>
+            </div>
+
+            <div style={{ height: 'calc(80vh - 60px)', overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {messages.length === 0 && (
+                <div style={{ color: 'rgba(255,255,255,0.1)', fontFamily: 'ui-monospace,monospace', fontSize: 12, textAlign: 'center', marginTop: 40 }}>no signals yet</div>
+              )}
+              {messages.map(msg => (
+                <div key={msg.id} style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flex: 1 }}>
+                    <span style={{ color: 'rgba(0,247,255,0.2)', fontFamily: 'ui-monospace,monospace', fontSize: 12, flexShrink: 0, marginTop: 1 }}>&gt;</span>
+                    <span style={{ fontSize: 13, color: 'rgba(203,213,245,0.75)', fontFamily: 'ui-monospace,monospace', lineHeight: 1.5, wordBreak: 'break-word' as const }}>{msg.text}</span>
+                  </div>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.12)', fontFamily: 'ui-monospace,monospace', flexShrink: 0, marginTop: 2 }}>{timeAgo(msg.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}

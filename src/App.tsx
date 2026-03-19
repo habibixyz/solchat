@@ -1,3 +1,4 @@
+import ProfilePage from './pages/ProfilePage';
 import { Routes, Route, NavLink, useLocation } from "react-router-dom";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
@@ -10,6 +11,7 @@ import TokenPage from "./pages/TokenPage";
 export default function App() {
   const location = useLocation();
   const isDiscover = location.pathname === "/discover";
+  const isProfile = location.pathname.startsWith("/profile");
 
   return (
     <div style={{
@@ -53,10 +55,10 @@ export default function App() {
         flex: 1,
         display: "flex",
         flexDirection: "column",
-        justifyContent: isDiscover ? "flex-start" : "center",
-        alignItems: isDiscover ? "stretch" : "center",
+        justifyContent: isDiscover || isProfile ? "flex-start" : "center",
+        alignItems: isDiscover || isProfile ? "stretch" : "center",
         position: "relative",
-        overflow: isDiscover ? "hidden" : "visible",
+        overflow: isDiscover || isProfile ? "hidden" : "visible",
       }}>
         <Routes>
           <Route path="/" element={<GenesisPage />} />
@@ -64,6 +66,7 @@ export default function App() {
           <Route path="/manifesto" element={<ManifestoPage />} />
           <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/token/:address" element={<TokenPage />} />
+          <Route path="/profile/:username" element={<ProfilePage />} />
         </Routes>
       </main>
 
