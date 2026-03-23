@@ -8,11 +8,9 @@ export default function Navbar() {
       <div className="text-xl font-bold">Solchat</div>
 
       <div className="flex gap-6 text-sm">
-
         <Link to="/">Chat</Link>
         <Link to="/discover">Discover</Link>
-        <Link to="/wallet">Wallet</Link>
-
+        <Link to="/manifesto">Manifesto</Link>
       </div>
 
     </div>

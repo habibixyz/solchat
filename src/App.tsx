@@ -1,16 +1,20 @@
 import ProfilePage from './pages/ProfilePage';
-import { Routes, Route, NavLink, useLocation } from "react-router-dom";
+import { Routes, Route, NavLink, useLocation, Navigate } from "react-router-dom";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
 import ChatLayout from "./components/ChatLayout";
-import GenesisPage from "./ritual/GenesisPage";
+import GenesisPage from "./ritual/GenesisPage"; // kept in code (hidden)
 import ManifestoPage from "./pages/ManifestoPage";
 import DiscoverPage from "./pages/DiscoverPage";
 import TokenPage from "./pages/TokenPage";
 
 export default function App() {
   const location = useLocation();
-  const isDiscover = location.pathname === "/discover";
+
+  const isDiscover =
+    location.pathname === "/discover" ||
+    location.pathname.startsWith("/token");
+
   const isProfile = location.pathname.startsWith("/profile");
 
   return (
@@ -42,15 +46,14 @@ export default function App() {
         </div>
 
         <div style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/">Sigil</NavLink>
           <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/chat">Chat</NavLink>
-          <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/manifesto">Manifesto</NavLink>
           <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/discover">Discover</NavLink>
+          <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/manifesto">Manifesto</NavLink>
           <WalletMultiButton style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: "#00f7ff", color: "#000", cursor: "pointer", fontWeight: "bold", fontSize: "13px", height: "36px" }} />
         </div>
       </header>
 
-      {/* MAIN — full width for terminal, centered for other pages */}
+      {/* MAIN */}
       <main style={{
         flex: 1,
         display: "flex",
@@ -61,16 +64,21 @@ export default function App() {
         overflow: isDiscover || isProfile ? "hidden" : "visible",
       }}>
         <Routes>
-          <Route path="/" element={<GenesisPage />} />
+          {/* 🔥 root now redirects to chat */}
+          <Route path="/" element={<Navigate to="/chat" />} />
+
           <Route path="/chat" element={<ChatLayout />} />
           <Route path="/manifesto" element={<ManifestoPage />} />
           <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/token/:address" element={<TokenPage />} />
           <Route path="/profile/:username" element={<ProfilePage />} />
+
+          {/* 🔒 hidden (still in code, not accessible) */}
+          <Route path="/genesis" element={<GenesisPage />} />
         </Routes>
       </main>
 
-      {/* FOOTER — hide on discover */}
+      {/* FOOTER */}
       {!isDiscover && (
         <footer style={{ textAlign: "center", padding: "16px", opacity: 0.6, fontSize: "12px" }}>
           © 2026 · Solchat.fun · Built by{" "}

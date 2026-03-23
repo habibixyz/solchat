@@ -1,15 +1,12 @@
-import { Buffer } from 'buffer';
-import process from 'process';
+import { Buffer } from "buffer";
 
-declare global {
-  interface Window {
-    Buffer: typeof Buffer;
-    process: typeof process;
-  }
+if (!(window as any).Buffer) {
+  (window as any).Buffer = Buffer;
 }
 
-window.Buffer = Buffer;
-window.process = process;
+if (!(window as any).process) {
+  (window as any).process = { env: {} };
+}
 
 import React from "react";
 import ReactDOM from "react-dom/client";
