@@ -1,3 +1,4 @@
+import BlogPost from "./pages/BlogPost";
 import ProfilePage from './pages/ProfilePage';
 import { Routes, Route, NavLink, useLocation, Navigate } from "react-router-dom";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
@@ -6,6 +7,8 @@ import ChatLayout from "./components/ChatLayout";
 import GenesisPage from "./ritual/GenesisPage"; // kept in code (hidden)
 import ManifestoPage from "./pages/ManifestoPage";
 import DiscoverPage from "./pages/DiscoverPage";
+import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
 import TokenPage from "./pages/TokenPage";
 
 export default function App() {
@@ -14,6 +17,7 @@ export default function App() {
   const isDiscover =
     location.pathname === "/discover" ||
     location.pathname.startsWith("/token");
+    location.pathname.startsWith("/blog");
 
   const isProfile = location.pathname.startsWith("/profile");
 
@@ -49,6 +53,8 @@ export default function App() {
           <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/chat">Chat</NavLink>
           <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/discover">Discover</NavLink>
           <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/manifesto">Manifesto</NavLink>
+          <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/blog">Blog</NavLink>
+  
           <WalletMultiButton style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: "#00f7ff", color: "#000", cursor: "pointer", fontWeight: "bold", fontSize: "13px", height: "36px" }} />
         </div>
       </header>
@@ -72,6 +78,8 @@ export default function App() {
           <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/token/:address" element={<TokenPage />} />
           <Route path="/profile/:username" element={<ProfilePage />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:slug" element={<BlogPost />} />
 
           {/* 🔒 hidden (still in code, not accessible) */}
           <Route path="/genesis" element={<GenesisPage />} />
