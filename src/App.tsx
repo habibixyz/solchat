@@ -1,4 +1,3 @@
-import BlogPost from "./pages/BlogPost";
 import ProfilePage from './pages/ProfilePage';
 import { Routes, Route, NavLink, useLocation, Navigate } from "react-router-dom";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
