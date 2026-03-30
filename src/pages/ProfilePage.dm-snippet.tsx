@@ -1,15 +1,15 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useWallet } from '@solana/wallet-adapter-react';
 
-// 2. Inside the component:
 const navigate = useNavigate();
 const { publicKey } = useWallet();
-const myWallet = publicKey?.toBase58() ?? '';
+const { wallet } = useParams();
 
-// profileWallet = the wallet shown on this profile (from URL param / props)
+const myWallet = publicKey?.toBase58() ?? '';
+const profileWallet = wallet ?? '';
+
 const isOwnProfile = myWallet === profileWallet;
 
-// 3. The DM button JSX — drop this right after the wallet address row:
 {!isOwnProfile && myWallet && (
   <button
     onClick={() => navigate(`/dm?dm=${profileWallet}`)}
@@ -43,4 +43,3 @@ const isOwnProfile = myWallet === profileWallet;
     🔒 DIRECT MESSAGE
   </button>
 )}
-
