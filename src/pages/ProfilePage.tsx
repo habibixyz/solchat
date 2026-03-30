@@ -103,7 +103,7 @@ export default function ProfilePage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
       <div style={{ fontSize: 40, opacity: 0.1 }}>⟁</div>
       <div style={{ color: 'rgba(255,255,255,0.2)', fontFamily: 'ui-monospace,monospace' }}>user not found</div>
-      <button onClick={() => navigate('/chat')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontFamily: 'ui-monospace,monospace' }}>← back</button>
+      <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontFamily: 'ui-monospace,monospace' }}>← back</button>
     </div>
   );
 
@@ -115,7 +115,7 @@ export default function ProfilePage() {
 
       <div style={{ maxWidth: 1100, margin: '0 auto', position: 'relative', zIndex: 1 }}>
 
-        <button onClick={() => navigate('/chat')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', fontFamily: 'ui-monospace,monospace', fontSize: 11, letterSpacing: 1, marginBottom: 16, padding: 0 }}>
+        <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', fontFamily: 'ui-monospace,monospace', fontSize: 11, letterSpacing: 1, marginBottom: 16, padding: 0 }}>
           ← back
         </button>
 
@@ -131,7 +131,7 @@ export default function ProfilePage() {
             width: isMobile ? '100%' : 260,
             flexShrink: 0,
             display: 'flex',
-            flexDirection: isMobile ? 'column' : 'column',
+            flexDirection: 'column',
             gap: 12,
           }}>
 
@@ -161,7 +161,46 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, marginTop: isMobile ? 12 : 12 }}>
+                {/* ── DM BUTTON — only shows when viewing someone else's profile ── */}
+                {!isOwner && publicKey && (
+                  <button
+                    onClick={() => navigate(`/dm?dm=${user.wallet_address}`)}
+                    style={{
+                      width: '100%',
+                      marginTop: 14,
+                      background: 'rgba(0,247,255,0.04)',
+                      border: '1px solid rgba(0,247,255,0.18)',
+                      borderRadius: 10,
+                      color: 'rgba(0,247,255,0.7)',
+                      fontSize: 11,
+                      fontFamily: 'ui-monospace,monospace',
+                      letterSpacing: 2,
+                      padding: '9px 0',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 7,
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={e => {
+                      const b = e.currentTarget;
+                      b.style.background = 'rgba(0,247,255,0.09)';
+                      b.style.borderColor = 'rgba(0,247,255,0.4)';
+                      b.style.color = '#00f7ff';
+                    }}
+                    onMouseLeave={e => {
+                      const b = e.currentTarget;
+                      b.style.background = 'rgba(0,247,255,0.04)';
+                      b.style.borderColor = 'rgba(0,247,255,0.18)';
+                      b.style.color = 'rgba(0,247,255,0.7)';
+                    }}
+                  >
+                    🔒 DIRECT MESSAGE
+                  </button>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                   <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
                     <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', fontFamily: 'ui-monospace,monospace' }}>{msgCount}</div>
                     <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', fontFamily: 'ui-monospace,monospace', letterSpacing: 1 }}>SIGNALS</div>
@@ -259,3 +298,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+

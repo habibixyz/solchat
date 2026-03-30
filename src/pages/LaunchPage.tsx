@@ -233,7 +233,7 @@ export default function LaunchPage() {
       <div style={{ position:'fixed',bottom:0,right:'10%',width:500,height:400,background:'radial-gradient(circle,rgba(124,92,255,0.04) 0%,transparent 70%)',pointerEvents:'none',zIndex:0 }} />
 
       <div style={{ maxWidth:600,margin:'0 auto',position:'relative',zIndex:1 }}>
-        <button onClick={()=>navigate('/chat')} style={{ background:'none',border:'none',color:'rgba(255,255,255,0.2)',cursor:'pointer',fontFamily:mono,fontSize:12,letterSpacing:1,marginBottom:24,padding:0 }}>← back</button>
+        <button onClick={()=>navigate('/')} style={{ background:'none',border:'none',color:'rgba(255,255,255,0.2)',cursor:'pointer',fontFamily:mono,fontSize:12,letterSpacing:1,marginBottom:24,padding:0 }}>← back</button>
 
         <div style={{ marginBottom:22 }}>
           <div style={{ fontSize:9,color:'rgba(0,247,255,0.4)',fontFamily:mono,letterSpacing:5,marginBottom:8 }}>POWERED BY BAGS.FM</div>
@@ -298,3 +298,4 @@ export default function LaunchPage() {
     </div>
   );
 }
+

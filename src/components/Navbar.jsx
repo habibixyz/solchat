@@ -11,6 +11,7 @@ export default function Navbar() {
         <Link to="/">Chat</Link>
         <Link to="/discover">Discover</Link>
         <Link to="/manifesto">Manifesto</Link>
+        <Link to="/dm" style={{ color: '#4fc3f7' }}>DMs</Link>  
       </div>
 
     </div>

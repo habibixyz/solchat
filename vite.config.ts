@@ -1,8 +1,9 @@
+// vite.config.ts
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill'
 import rollupNodePolyFill from 'rollup-plugin-polyfill-node'
-import path from 'path';
+import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
@@ -27,13 +28,13 @@ export default defineConfig({
   },
 
   resolve: {
-  alias: {
-    buffer: 'buffer',
-    process: path.resolve(__dirname, 'node_modules/process/browser.js'),
-    stream: 'stream-browserify',
-    util: 'util',
+    alias: {
+      buffer: 'buffer',
+      process: path.resolve(__dirname, 'node_modules/process/browser.js'),
+      stream: 'stream-browserify',
+      util: 'util',
+    },
   },
-},
 
   build: {
     rollupOptions: {

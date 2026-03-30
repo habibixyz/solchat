@@ -9,14 +9,16 @@ import DiscoverPage from "./pages/DiscoverPage";
 import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
 import TokenPage from "./pages/TokenPage";
+import { DMPage } from './pages/DMPage';
 
 export default function App() {
   const location = useLocation();
 
   const isDiscover =
-    location.pathname === "/discover" ||
-    location.pathname.startsWith("/token");
-    location.pathname.startsWith("/blog");
+  location.pathname === "/discover" ||
+  location.pathname.startsWith("/token") ||
+  location.pathname.startsWith("/blog") ||
+  location.pathname.startsWith("/dm");
 
   const isProfile = location.pathname.startsWith("/profile");
 
@@ -70,15 +72,15 @@ export default function App() {
       }}>
         <Routes>
           {/* 🔥 root now redirects to chat */}
-          <Route path="/" element={<Navigate to="/chat" />} />
-
-          <Route path="/chat" element={<ChatLayout />} />
+          <Route path="/" element={<ChatLayout />} />
+          <Route path="/chat" element={<Navigate to="/" />} />
           <Route path="/manifesto" element={<ManifestoPage />} />
           <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/token/:address" element={<TokenPage />} />
           <Route path="/profile/:username" element={<ProfilePage />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogPost />} />
+          <Route path="/dm" element={<DMPage />} />
 
           {/* 🔒 hidden (still in code, not accessible) */}
           <Route path="/genesis" element={<GenesisPage />} />
