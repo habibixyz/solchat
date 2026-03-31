@@ -702,7 +702,7 @@ const S = {
     alignItems: 'center',
     textAlign: 'center' as const,
     padding: '32px 20px',
-    boxSizing: 'border-box',
+    boxSizing: 'border-box'as const,
     background: 'rgba(8,16,32,0.8)',
     border: `1px solid ${C.borderMid}`,
     borderRadius: 20,
