@@ -149,7 +149,7 @@ function AdPanel({ ads, wallet, connection, isMobileView=false }) {
           description: form.desc,
           url: form.url,
           twitter: form.twitter.replace(/^@/,""),
-          wallet_address: wallet.publicKey.toBase58(),
+          wallet_address: wallet.publicKey?.toBase58?.(),
           tx_signature: sig,
           status: "pending",
           submitted_at: new Date().toISOString(),
@@ -239,7 +239,7 @@ function AdPanel({ ads, wallet, connection, isMobileView=false }) {
           ))}
           <div style={{ fontSize:10, fontFamily:mono, margin:"8px 0 6px", padding:"7px 8px", borderRadius:6, background:C.bgRow, border:`1px solid ${C.border}` }}>
             {wallet?.publicKey
-              ? <span style={{ color:C.green }}>✓ Wallet: {wallet.publicKey.toBase58().slice(0,6)}…{wallet.publicKey.toBase58().slice(-4)}</span>
+              ? <span style={{ color:C.green }}>✓ Wallet: {wallet.publicKey?.toBase58?.().slice(0,6)}…{wallet.publicKey?.toBase58?.().slice(-4)}</span>
               : <span style={{ color:C.yellow }}>⚠ Connect wallet to pay</span>
             }
           </div>

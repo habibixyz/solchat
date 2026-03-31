@@ -30,7 +30,12 @@ export default function ProfilePage() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [avatar, setAvatar] = useState<string | null>(null);
 
-  const isOwner = !!(publicKey && user && publicKey.toBase58() === user.wallet_address);
+  const walletAddress = publicKey?.toBase58?.();
+
+const isOwner =
+  !!walletAddress &&
+  !!user &&
+  walletAddress === user.wallet_address;
   const score = (ethos as any)?.score?.score ?? (ethos as any)?.score ?? null;
   const level = (ethos as any)?.score?.level ?? (ethos as any)?.level ?? null;
   const levelColor = level ? (LEVEL_COLOR[level] ?? '#7c5cff') : '#7c5cff';
