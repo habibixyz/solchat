@@ -36,13 +36,32 @@ export async function sendReaction(
     throw new Error('Cannot connect to Solana. Check your RPC URL.');
   }
 
-  const tx = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: new PublicKey(reactorWallet),
-      toPubkey: new PublicKey(CREATOR_WALLET),
-      lamports: REACTION_FEE,
-    })
-  );
+  // ✅ VALIDATE BEFORE USING
+if (!reactorWallet || typeof reactorWallet !== 'string') {
+  throw new Error('Invalid wallet (empty)');
+}
+
+if (!CREATOR_WALLET) {
+  throw new Error('Creator wallet not set');
+}
+
+let fromPubkey: PublicKey;
+let toPubkey: PublicKey;
+
+try {
+  fromPubkey = new PublicKey(reactorWallet);
+  toPubkey = new PublicKey(CREATOR_WALLET);
+} catch {
+  throw new Error('Invalid wallet format');
+}
+
+const tx = new Transaction().add(
+  SystemProgram.transfer({
+    fromPubkey,
+    toPubkey,
+    lamports: REACTION_FEE,
+  })
+);
 
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
   tx.recentBlockhash = blockhash;
