@@ -12,7 +12,7 @@ const RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL;
 
 const CREATOR_WALLET =
 import.meta.env.VITE_CREATOR_WALLET ||
-A3vfDdCu4y5EaVxKqnHmEKjwa2SaMhCZm9wbUQZrA8CV';
+'A3vfDdCu4y5EaVxKqnHmEKjwa2SaMhCZm9wbUQZrA8CV';
 
 const REACTION_FEE = Math.floor(0.0001 * LAMPORTS_PER_SOL);
 
