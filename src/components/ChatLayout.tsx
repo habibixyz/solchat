@@ -354,7 +354,7 @@ if (!initialLoadDone.current) {
   try {
     await sendReaction(
       msgId,
-      wallet.publicKey,
+      wallet.publicKey.toBase58(),
       'signal',
       (wallet.sendTransaction as any).bind(wallet)
     );
