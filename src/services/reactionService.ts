@@ -9,7 +9,11 @@ import {
 import { supabase } from '../lib/supabase';
 
 const RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL;
-const CREATOR_WALLET = import.meta.env.VITE_CREATOR_WALLET;
+
+const CREATOR_WALLET =
+import.meta.env.VITE_CREATOR_WALLET ||
+A3vfDdCu4y5EaVxKqnHmEKjwa2SaMhCZm9wbUQZrA8CV';
+
 const REACTION_FEE = Math.floor(0.0001 * LAMPORTS_PER_SOL);
 
 export type ReactionType = 'signal';
@@ -65,7 +69,7 @@ const tx = new Transaction().add(
 
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
   tx.recentBlockhash = blockhash;
-  tx.feePayer = new PublicKey(reactorWallet);
+  tx.feePayer = fromPubkey;
 
   let signature: string;
   try {
