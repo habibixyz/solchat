@@ -108,7 +108,7 @@ export default function ChatLayout() {
   const location = useLocation();
   const wallet = useWallet();
   const { connection } = useConnection();
-  const myWallet = wallet.publicKey?.toBase58() ?? '';
+    
 
   const getPanelFromPath = (): Panel => {
   if (location.pathname.includes('dm')) return 'dms';
@@ -338,17 +338,35 @@ if (!initialLoadDone.current) {
   };
 
   const handleReact = async (msgId: string) => {
-    if (!myWallet || reactingId) return;
-    if (reactions[msgId]?.myReactions?.has('signal')) return;
-    setReactingId(msgId);
-    try { await sendReaction(msgId, myWallet, 'signal' as ReactionType, wallet.sendTransaction as any); }
-    catch (e: any) {
-  const msg = e?.message ?? '';
-  if (msg.includes('already') || msg.includes('cancelled') || msg.includes('rejected')) return;
-  alert('Reaction failed: ' + msg);
+  if (!wallet?.publicKey || !wallet?.sendTransaction) {
+    alert('Connect wallet first');
+    return;
+  }
+  
+  if (!wallet.connected) {
+  alert('Wallet not ready yet');
+  return;
 }
-    finally { setReactingId(null); }
-  };
+
+  if (!myWallet || reactingId) return;
+  if (reactions[msgId]?.myReactions?.has('signal')) return;
+
+  setReactingId(msgId);
+
+  try {
+    await sendReaction(
+      msgId,
+      myWallet,
+      'signal',
+      wallet.sendTransaction.bind(wallet)
+    );
+  } catch (e: any) {
+    console.error(e);
+    alert('Reaction failed: ' + e.message);
+  } finally {
+    setReactingId(null);
+  }
+};
 
   const renderText = (text: string) =>
     text.split(/(\$[A-Z]{2,10}|\b[1-9A-HJ-NP-Za-km-z]{32,44}\b)/g).map((p, i) => {
