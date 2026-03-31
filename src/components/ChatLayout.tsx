@@ -107,6 +107,7 @@ export default function ChatLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const wallet = useWallet();
+  const myWallet = wallet.publicKey?.toBase58() ?? '';
   const { connection } = useConnection();
     
 
@@ -358,7 +359,7 @@ if (!initialLoadDone.current) {
       msgId,
       myWallet,
       'signal',
-      wallet.sendTransaction.bind(wallet)
+      (wallet.sendTransaction as any).bind(wallet)
     );
   } catch (e: any) {
     console.error(e);
