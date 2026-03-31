@@ -106,8 +106,10 @@ const PanelWrap = ({ show, children }: { show: boolean; children: React.ReactNod
 export default function ChatLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+
   const wallet = useWallet();
   const myWallet = wallet.publicKey?.toBase58() ?? '';
+
   const { connection } = useConnection();
     
 
@@ -339,25 +341,20 @@ if (!initialLoadDone.current) {
   };
 
   const handleReact = async (msgId: string) => {
-  if (!wallet?.publicKey || !wallet?.sendTransaction) {
+  // ✅ ADD THIS AT TOP
+  if (!wallet?.publicKey) {
     alert('Connect wallet first');
     return;
   }
-  
-  if (!wallet.connected) {
-  alert('Wallet not ready yet');
-  return;
-}
 
-  if (!myWallet || reactingId) return;
-  if (reactions[msgId]?.myReactions?.has('signal')) return;
+  if (reactingId) return;
 
   setReactingId(msgId);
 
   try {
     await sendReaction(
       msgId,
-      myWallet,
+      wallet.publicKey,
       'signal',
       (wallet.sendTransaction as any).bind(wallet)
     );
