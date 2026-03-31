@@ -1,7 +1,4 @@
-// src/components/ChatLayout.tsx  — ⟁ SOLCHAT
-// Large readable text. Identical layout across all panels. No jumping.
 import { useNavigate, useLocation } from 'react-router-dom';
-import { measureMessage } from "../utils/layoutEngine";
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { supabase } from '../lib/supabase';
@@ -142,9 +139,6 @@ export default function ChatLayout() {
   const [notifCount,     setNotifCount]      = useState(0);
   const [notifications,  setNotifications]   = useState<any[]>([]);
   const [notifLoad,      setNotifLoad]       = useState(false);
-  const [mounted,        setMounted]         = useState(false);
-
-
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialLoadDone = useRef(false);  
   const inputRef  = useRef<HTMLInputElement>(null);
@@ -157,6 +151,7 @@ export default function ChatLayout() {
     document.head.appendChild(s);
   }, []);
 
+
   useEffect(() => {
   const el = scrollRef.current;
   if (!el) return;
@@ -165,10 +160,6 @@ export default function ChatLayout() {
     el.scrollTop = el.scrollHeight;
   });
 }, [messages.length]);
-
-  useEffect(() => {
-  setMounted(true);
-}, []);
 
 useEffect(() => {
   setPanel(getPanelFromPath());
@@ -351,7 +342,11 @@ if (!initialLoadDone.current) {
     if (reactions[msgId]?.myReactions?.has('signal')) return;
     setReactingId(msgId);
     try { await sendReaction(msgId, myWallet, 'signal' as ReactionType, wallet.sendTransaction as any); }
-    catch (e: any) { if (!e.message?.includes('already')) alert('Failed: ' + e.message); }
+    catch (e: any) {
+  const msg = e?.message ?? '';
+  if (msg.includes('already') || msg.includes('cancelled') || msg.includes('rejected')) return;
+  alert('Reaction failed: ' + msg);
+}
     finally { setReactingId(null); }
   };
 
@@ -458,9 +453,6 @@ if (!initialLoadDone.current) {
     const rc    = reactions[msg.id];
     const sigN  = rc?.signal ?? 0;
     const mine  = rc?.myReactions?.has('signal') ?? false;
-
-    if (!mounted) return null;
-
     return (
       <div className="cl-row" style={{ display: 'flex', gap: 14, padding: '10px 22px', background: isAI ? 'rgba(99,102,241,0.03)' : 'transparent', borderLeft: isAI ? '2px solid rgba(99,102,241,0.2)' : '2px solid transparent', transition: 'background .1s' }}>
         {/* rank # for trending */}

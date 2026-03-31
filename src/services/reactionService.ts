@@ -25,7 +25,16 @@ export async function sendReaction(
   type: ReactionType,
   sendTransaction: (tx: Transaction, connection: Connection) => Promise<string>
 ): Promise<void> {
+  if (!RPC_URL) throw new Error('RPC URL not configured');
+  
   const connection = new Connection(RPC_URL, 'confirmed');
+
+  // Validate connection before building tx
+  try {
+    await connection.getLatestBlockhash();
+  } catch {
+    throw new Error('Cannot connect to Solana. Check your RPC URL.');
+  }
 
   const tx = new Transaction().add(
     SystemProgram.transfer({
@@ -35,18 +44,28 @@ export async function sendReaction(
     })
   );
 
-  const { blockhash } = await connection.getLatestBlockhash();
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
   tx.recentBlockhash = blockhash;
   tx.feePayer = new PublicKey(reactorWallet);
 
-  const sig = await sendTransaction(tx, connection);
-  await connection.confirmTransaction(sig, 'confirmed');
+  let signature: string;
+  try {
+    signature = await sendTransaction(tx, connection);
+  } catch (e: any) {
+    // User rejected or wallet not ready
+    if (e?.message?.includes('_bn') || e?.message?.includes('User rejected')) {
+      throw new Error('Transaction cancelled or wallet not ready');
+    }
+    throw e;
+  }
+
+  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
 
   const { error } = await supabase.from('message_reactions').insert({
     message_id: messageId,
     reactor: reactorWallet,
     reaction_type: type,
-    tx_signature: sig,
+    tx_signature: signature,
   });
   if (error) throw error;
 }

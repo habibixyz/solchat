@@ -4,6 +4,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { supabase } from '../lib/supabase';
 import { getEthosProfile, LEVEL_COLOR } from '../services/ethosService';
 import type { EthosProfile } from '../services/ethosService';
+import { invalidateAvatar } from '../utils/avatarCache';
 
 interface UserRecord {
   wallet_address: string;
@@ -27,6 +28,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [avatar, setAvatar] = useState<string | null>(null);
 
   const isOwner = !!(publicKey && user && publicKey.toBase58() === user.wallet_address);
   const score = (ethos as any)?.score?.score ?? (ethos as any)?.score ?? null;
@@ -46,6 +48,7 @@ export default function ProfilePage() {
       const { data } = await supabase.from('usernames').select('*').eq('username', username).maybeSingle();
       if (!data) { setLoading(false); return; }
       setUser(data);
+      setAvatar(data.avatar_url ?? null);
       setTwitterInput(data.twitter_handle ?? '');
       const { data: msgs } = await supabase.from('messages').select('*').eq('username', username).order('created_at', { ascending: false });
       setMessages(Array.isArray(msgs) ? msgs : []);
@@ -93,6 +96,30 @@ export default function ProfilePage() {
     return `${Math.floor(h / 24)}d`;
   }
 
+  async function handleAvatarUpload(file: File) {
+  if (!user || !isOwner) return;
+
+  const path = `${user.wallet_address}.jpg`;
+
+  await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true });
+
+  const { data } = supabase.storage
+    .from('avatars')
+    .getPublicUrl(path);
+
+  const publicUrl = data.publicUrl + `?t=${Date.now()}`;
+
+  await supabase
+    .from('usernames')
+    .update({ avatar_url: publicUrl })
+    .eq('wallet_address', user.wallet_address);
+
+  setAvatar(publicUrl);
+  invalidateAvatar(user.wallet_address, user.username);
+}
+
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ color: 'rgba(255,255,255,0.15)', fontFamily: 'ui-monospace,monospace', fontSize: 11, letterSpacing: 4 }}>LOADING...</div>
@@ -109,6 +136,17 @@ export default function ProfilePage() {
 
   return (
     <div style={{ minHeight: '100vh', padding: isMobile ? '16px 12px 60px' : '24px 20px 60px', position: 'relative' }}>
+      
+      <input
+      type="file"
+      accept="image/*"
+      id="avatarUpload"
+      style={{ display: 'none' }}
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file) handleAvatarUpload(file);
+      }}
+    />
 
       <div style={{ position: 'fixed', top: 0, left: '20%', width: 600, height: 400, background: 'radial-gradient(circle, rgba(0,247,255,0.04) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
       <div style={{ position: 'fixed', bottom: 0, right: '10%', width: 500, height: 400, background: 'radial-gradient(circle, rgba(124,92,255,0.05) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
@@ -142,9 +180,47 @@ export default function ProfilePage() {
               <div style={{ padding: '20px 20px 16px' }}>
                 <div style={{ display: 'flex', alignItems: isMobile ? 'center' : 'flex-start', gap: isMobile ? 14 : 0, flexDirection: isMobile ? 'row' : 'column' }}>
                   {/* Avatar */}
-                  <div style={{ width: isMobile ? 52 : 64, height: isMobile ? 52 : 64, borderRadius: 14, flexShrink: 0, background: 'rgba(0,247,255,0.08)', border: `1px solid ${levelColor}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? 18 : 22, fontWeight: 700, color: '#00f7ff', fontFamily: 'ui-monospace,monospace', marginBottom: isMobile ? 0 : 14, boxShadow: `0 0 20px ${levelColor}22` }}>
-                    {user.username.slice(0, 2).toUpperCase()}
-                  </div>
+                  <div
+  onClick={() => {
+    if (isOwner) document.getElementById('avatarUpload')?.click();
+  }}
+  style={{
+    width: isMobile ? 52 : 64,
+    height: isMobile ? 52 : 64,
+    borderRadius: 14,
+    flexShrink: 0,
+    cursor: isOwner ? 'pointer' : 'default',
+    overflow: 'hidden',
+    border: `1px solid ${levelColor}44`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(0,247,255,0.08)',
+    boxShadow: `0 0 20px ${levelColor}22`
+  }}
+>
+  {avatar ? (
+    <img
+      src={avatar}
+      style={{
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover'
+      }}
+    />
+  ) : (
+    <span
+      style={{
+        fontSize: isMobile ? 18 : 22,
+        fontWeight: 700,
+        color: '#00f7ff',
+        fontFamily: 'ui-monospace,monospace'
+      }}
+    >
+      {user.username.slice(0, 2).toUpperCase()}
+    </span>
+  )}
+</div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: '#fff', fontFamily: 'ui-monospace,monospace', marginBottom: 4, textShadow: '0 0 16px rgba(0,247,255,0.2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
