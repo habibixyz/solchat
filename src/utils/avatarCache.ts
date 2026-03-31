@@ -1,6 +1,5 @@
 // src/utils/avatarCache.ts
 // Lightweight in-memory cache for avatar URLs (wallet + username)
-// Dedupes requests, prevents refetch spam, supports cache invalidation
 
 import { supabase } from '../lib/supabase';
 
@@ -16,22 +15,24 @@ export async function getAvatar(wallet: string): Promise<string | null> {
   if (wallet in walletCache) return walletCache[wallet];
   if (wallet in walletPending) return walletPending[wallet];
 
-  walletPending[wallet] = supabase
-    .from('usernames')
-    .select('avatar_url')
-    .eq('wallet_address', wallet)
-    .maybeSingle()
-    .then(({ data }) => {
+  walletPending[wallet] = (async () => {
+    try {
+      const { data } = await supabase
+        .from('usernames')
+        .select('avatar_url')
+        .eq('wallet_address', wallet)
+        .maybeSingle();
+
       const url = data?.avatar_url ?? null;
       walletCache[wallet] = url;
-      delete walletPending[wallet];
       return url;
-    })
-    .catch(() => {
+    } catch {
       walletCache[wallet] = null;
-      delete walletPending[wallet];
       return null;
-    });
+    } finally {
+      delete walletPending[wallet];
+    }
+  })();
 
   return walletPending[wallet];
 }
@@ -48,22 +49,24 @@ export async function getAvatarByUsername(username: string): Promise<string | nu
   if (username in usernameCache) return usernameCache[username];
   if (username in usernamePending) return usernamePending[username];
 
-  usernamePending[username] = supabase
-    .from('usernames')
-    .select('avatar_url')
-    .eq('username', username)
-    .maybeSingle()
-    .then(({ data }) => {
+  usernamePending[username] = (async () => {
+    try {
+      const { data } = await supabase
+        .from('usernames')
+        .select('avatar_url')
+        .eq('username', username)
+        .maybeSingle();
+
       const url = data?.avatar_url ?? null;
       usernameCache[username] = url;
-      delete usernamePending[username];
       return url;
-    })
-    .catch(() => {
+    } catch {
       usernameCache[username] = null;
-      delete usernamePending[username];
       return null;
-    });
+    } finally {
+      delete usernamePending[username];
+    }
+  })();
 
   return usernamePending[username];
 }
@@ -78,24 +81,30 @@ export async function preloadAvatars(usernames: string[]): Promise<void> {
 
   if (!unique.length) return;
 
-  const { data } = await supabase
-    .from('usernames')
-    .select('username, avatar_url')
-    .in('username', unique)
-    .catch(() => ({ data: [] }));
+  let data: any[] = [];
 
-  (data ?? []).forEach((row: any) => {
+  try {
+    const res = await supabase
+      .from('usernames')
+      .select('username, avatar_url')
+      .in('username', unique);
+
+    data = res.data ?? [];
+  } catch {
+    data = [];
+  }
+
+  data.forEach((row: any) => {
     usernameCache[row.username] = row.avatar_url ?? null;
   });
 
-  // mark missing ones as null (avoid refetch loops)
   unique.forEach(u => {
     if (!(u in usernameCache)) usernameCache[u] = null;
   });
 }
 
 // ─────────────────────────────────────────
-// Cache invalidation (VERY IMPORTANT)
+// Cache invalidation
 // ─────────────────────────────────────────
 export function invalidateAvatar(wallet?: string, username?: string) {
   if (wallet) {
