@@ -528,7 +528,7 @@ if (!initialLoadDone.current) {
 
   // ────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="cl" style={{ display: 'flex', height: 'calc(100vh - 58px)', width: '100%', minWidth: '100%', background: `radial-gradient(ellipse at 12% 0%, rgba(0,247,255,0.05), transparent 45%), radial-gradient(ellipse at 88% 100%, rgba(124,92,255,0.04), transparent 45%), #06101a`, overflow: 'hidden', fontFamily: "'Space Mono','Courier New',monospace" }}>
+    <div className="cl" style={{ display: 'flex', height: isMobile ? '100vh' : 'calc(100vh - 58px)', width: '100%', minWidth: '100%', background: `radial-gradient(ellipse at 12% 0%, rgba(0,247,255,0.05), transparent 45%), radial-gradient(ellipse at 88% 100%, rgba(124,92,255,0.04), transparent 45%), #06101a`, overflowX: 'hidden', overflowY: 'auto', fontFamily: "'Space Mono','Courier New',monospace" }}>
 
       {/* ══ SIDEBAR (desktop) ══ */}
       {!isMobile && (
@@ -585,7 +585,7 @@ if (!initialLoadDone.current) {
       )}
 
       {/* ══ MAIN ══ */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden', minWidth: 0, width: '100%', maxWidth: '100%', height: '100%'}}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, overflow: isMobile ? 'auto' : 'hidden', minWidth: 0, width: '100%', maxWidth: '100%', height: '100%'}}>
 
         {/* mobile bar */}
         {isMobile && (

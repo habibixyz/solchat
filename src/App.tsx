@@ -10,6 +10,7 @@ import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
 import TokenPage from "./pages/TokenPage";
 import { DMPage } from './pages/DMPage';
+import LaunchPage from './pages/LaunchPage';
 
 export default function App() {
   const location = useLocation();
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogPost />} />
           <Route path="/dm" element={<DMPage />} />
+          <Route path="/launch" element={<LaunchPage />} />
 
           {/* 🔒 hidden (still in code, not accessible) */}
           <Route path="/genesis" element={<GenesisPage />} />

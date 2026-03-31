@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
 import { supabase } from '../lib/supabase';
 import {
   getMyThreads,
@@ -100,7 +101,7 @@ export function DMPage() {
   const [pendingWallet, setPendingWallet] = useState<string | null>(null);
   const [threadExists, setThreadExists] = useState<boolean | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(window.innerWidth >= 768);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -128,12 +129,21 @@ export function DMPage() {
     const params = new URLSearchParams(window.location.search);
     const dmTarget = params.get('dm');
     if (dmTarget && dmTarget !== myWallet) {
-      setPendingWallet(dmTarget);
-      getThread(myWallet, dmTarget).then(t => {
-        setThreadExists(!!t);
-        if (t) { setActiveThread(t as DMThread); if (isMobile) setShowSidebar(false); }
-      });
+  setPendingWallet(dmTarget);
+
+  // ✅ ALWAYS show chat pane on mobile
+  if (window.innerWidth < 768) {
+    setShowSidebar(false);
+  }
+
+  getThread(myWallet, dmTarget).then(t => {
+    setThreadExists(!!t);
+
+    if (t) {
+      setActiveThread(t as DMThread);
     }
+  });
+}
   }, [myWallet]);
 
   useEffect(() => {
@@ -163,19 +173,42 @@ export function DMPage() {
   }, [activeThread?.id]);
 
   const handleOpenThread = useCallback(async () => {
-    if (!pendingWallet || !myWallet || loadingOpen) return;
-    setLoadingOpen(true);
-    try {
-      const threadId = await openDMThread(myWallet, pendingWallet, sendTransaction as any);
-      const [a, b] = canonicalPair(myWallet, pendingWallet);
-      const newThread: DMThread = { id: threadId, participant_a: a, participant_b: b, created_at: new Date().toISOString() };
-      setThreads(prev => [newThread, ...prev]);
-      setActiveThread(newThread);
-      setThreadExists(true);
-      if (isMobile) setShowSidebar(false);
-    } catch (e: any) { alert('Failed: ' + (e.message ?? e)); }
-    finally { setLoadingOpen(false); }
-  }, [pendingWallet, myWallet, loadingOpen, sendTransaction]);
+  if (!pendingWallet || !myWallet || loadingOpen) return;
+
+  setLoadingOpen(true);
+
+  try {
+    // ✅ VALIDATE WALLET (THIS FIXES _bn ERROR)
+    const target = new PublicKey(pendingWallet);
+
+    const threadId = await openDMThread(
+      myWallet,
+      target.toBase58(),
+      sendTransaction as any
+    );
+
+    const [a, b] = canonicalPair(myWallet, target.toBase58());
+
+    const newThread = {
+      id: threadId,
+      participant_a: a,
+      participant_b: b,
+      created_at: new Date().toISOString(),
+    };
+
+    setThreads(prev => [newThread, ...prev]);
+    setActiveThread(newThread);
+    setThreadExists(true);
+
+    if (isMobile) setShowSidebar(false);
+
+  } catch (e: any) {
+    console.error(e);
+    alert('Failed: ' + (e.message || 'Invalid wallet'));
+  } finally {
+    setLoadingOpen(false);
+  }
+}, [pendingWallet, myWallet, loadingOpen, sendTransaction, isMobile]);
 
   const handleSend = useCallback(async () => {
     const trimmed = text.trim();
@@ -288,38 +321,77 @@ export function DMPage() {
 
           {/* ── Empty state ── */}
           {!activeThread && (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {pendingWallet && threadExists === false ? (
-                <div style={S.openCard}>
-                  {/* Glow orb */}
-                  <div style={S.openOrb} />
-                  <div style={{ fontSize: 44, marginBottom: 16, position: 'relative', zIndex: 1 }}>🔒</div>
-                  <div style={S.openTitle}>Open Private Thread</div>
-                  <div style={S.openTarget}>{short(pendingWallet)}</div>
-                  <div style={S.openNote}>
-                    First message costs <span style={{ color: '#00f7ff', fontWeight: 700 }}>0.001 SOL</span><br />
-                    Thread is free forever after that.
-                  </div>
-                  <button
-                    className="dm-open-btn"
-                    style={S.openBtn(loadingOpen)}
-                    onClick={handleOpenThread}
-                    disabled={loadingOpen}
-                  >
-                    {loadingOpen
-                      ? '> OPENING...'
-                      : '> OPEN THREAD · 0.001 SOL'}
-                  </button>
-                </div>
-              ) : (
-                <div style={{ textAlign: 'center' as const, color: 'rgba(0,247,255,0.2)' }}>
-                  <div style={{ fontSize: 48, marginBottom: 12 }}>⟁</div>
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, letterSpacing: 3 }}>SELECT A THREAD</div>
-                </div>
-              )}
-            </div>
-          )}
+  <div
+    style={{
+      flex: 1,
+      minHeight: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '16px',
+      width: '100%',
+    }}
+  >
+    {pendingWallet && !threadExists ? (
+      <div style={S.openCard}>
+        {/* Glow orb */}
+        <div style={S.openOrb} />
 
+        <div
+          style={{
+            fontSize: 44,
+            marginBottom: 16,
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          🔒
+        </div>
+
+        <div style={S.openTitle}>Open Private Thread</div>
+        <div style={S.openTarget}>{short(pendingWallet)}</div>
+
+        <div style={S.openNote}>
+          First message costs{' '}
+          <span style={{ color: '#00f7ff', fontWeight: 700 }}>
+            0.001 SOL
+          </span>
+          <br />
+          Thread is free forever after that.
+        </div>
+
+        <button
+          className="dm-open-btn"
+          style={S.openBtn(loadingOpen)}
+          onClick={handleOpenThread}
+          disabled={loadingOpen}
+        >
+          {loadingOpen
+            ? '> OPENING...'
+            : '> OPEN THREAD · 0.001 SOL'}
+        </button>
+      </div>
+    ) : (
+      <div
+        style={{
+          textAlign: 'center',
+          color: 'rgba(0,247,255,0.2)',
+        }}
+      >
+        <div style={{ fontSize: 48, marginBottom: 12 }}>⟁</div>
+        <div
+          style={{
+            fontFamily: "'Space Mono', monospace",
+            fontSize: 12,
+            letterSpacing: 3,
+          }}
+        >
+          SELECT A THREAD
+        </div>
+      </div>
+    )}
+  </div>
+)}
           {/* ── Active thread ── */}
           {activeThread && activeOther && (
             <>
@@ -475,7 +547,8 @@ const S = {
     background: `radial-gradient(ellipse at 15% 0%, rgba(0,247,255,0.06) 0%, transparent 50%),
                  radial-gradient(ellipse at 85% 100%, rgba(124,92,255,0.05) 0%, transparent 50%),
                  ${C.bg}`,
-    overflow: 'hidden',
+    overflowX: 'hidden',
+    overflowY: 'auto',
     position: 'relative' as const,
   } as React.CSSProperties,
 
@@ -628,10 +701,12 @@ const S = {
     flexDirection: 'column' as const,
     alignItems: 'center',
     textAlign: 'center' as const,
-    padding: '48px 40px',
+    padding: '32px 20px',
+    boxSizing: 'border-box',
     background: 'rgba(8,16,32,0.8)',
     border: `1px solid ${C.borderMid}`,
     borderRadius: 20,
+    width: '100%',
     maxWidth: 380,
     position: 'relative' as const,
     overflow: 'hidden',
