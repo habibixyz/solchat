@@ -33,6 +33,9 @@ export async function openDMThread(
 ): Promise<string> {
   const connection = new Connection(RPC_URL, 'confirmed');
 
+  console.log("ENV:", import.meta.env);
+  console.log("CREATOR:", import.meta.env.VITE_CREATOR_WALLET);
+
 if (!myWallet || !theirWallet) {
   throw new Error("Invalid wallet");
 }

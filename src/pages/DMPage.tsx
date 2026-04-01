@@ -102,6 +102,8 @@ export function DMPage() {
   const [threadExists, setThreadExists] = useState<boolean | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showSidebar, setShowSidebar] = useState(window.innerWidth >= 768);
+  const DM_PRICE_SOL = 0.0001;
+  const DM_PRICE_LAMPORTS = DM_PRICE_SOL * 1_000_000_000;
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -180,6 +182,9 @@ export function DMPage() {
   try {
     // ✅ VALIDATE WALLET (THIS FIXES _bn ERROR)
     const target = new PublicKey(pendingWallet);
+    if (target.toBase58() === myWallet) {
+  throw new Error("You cannot DM yourself");
+}
 
     const threadId = await openDMThread(
       myWallet,
@@ -188,6 +193,10 @@ export function DMPage() {
     );
 
     const [a, b] = canonicalPair(myWallet, target.toBase58());
+
+    if (a === b) {
+  throw new Error("Invalid thread: same wallet");
+}
 
     const newThread = {
       id: threadId,
@@ -354,7 +363,7 @@ export function DMPage() {
         <div style={S.openNote}>
           First message costs{' '}
           <span style={{ color: '#00f7ff', fontWeight: 700 }}>
-            0.001 SOL
+            0.0001 SOL
           </span>
           <br />
           Thread is free forever after that.
@@ -368,7 +377,7 @@ export function DMPage() {
         >
           {loadingOpen
             ? '> OPENING...'
-            : '> OPEN THREAD · 0.001 SOL'}
+            : '> OPEN THREAD · 0.0001 SOL'}
         </button>
       </div>
     ) : (
