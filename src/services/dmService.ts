@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 
 const RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL;
 const CREATOR_WALLET = import.meta.env.VITE_CREATOR_WALLET; // where 0.001 SOL goes
-const DM_OPEN_FEE = 0.001 * LAMPORTS_PER_SOL;
+const DM_PRICE_SOL = 0.0001;
+const DM_OPEN_FEE = Math.floor(DM_PRICE_SOL * LAMPORTS_PER_SOL);
 
 // Canonical thread ID lookup: always order wallets alphabetically
 export function canonicalPair(a: string, b: string): [string, string] {
@@ -32,14 +33,24 @@ export async function openDMThread(
 ): Promise<string> {
   const connection = new Connection(RPC_URL, 'confirmed');
 
-  // Build payment tx
-  const tx = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: new PublicKey(myWallet),
-      toPubkey: new PublicKey(CREATOR_WALLET),
-      lamports: DM_OPEN_FEE,
-    })
-  );
+if (!myWallet || !theirWallet) {
+  throw new Error("Invalid wallet");
+}
+
+if (!CREATOR_WALLET) {
+  throw new Error("Creator wallet not set");
+}
+
+const fromPubkey = new PublicKey(myWallet);
+const toPubkey = new PublicKey(CREATOR_WALLET);
+
+const tx = new Transaction().add(
+  SystemProgram.transfer({
+    fromPubkey,
+    toPubkey,
+    lamports: DM_OPEN_FEE,
+  })
+);
 
   const { blockhash } = await connection.getLatestBlockhash();
   tx.recentBlockhash = blockhash;
