@@ -2,7 +2,7 @@ import { Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } f
 import { supabase } from '../lib/supabase';
 
 const RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL;
-const CREATOR_WALLET = import.meta.env.VITE_CREATOR_WALLET; // // where DM fee goes
+const CREATOR_WALLET = A3vfDdCu4y5EaVxKqnHmEKjwa2SaMhCZm9wbUQZrA8CV
 const DM_PRICE_SOL = 0.0001;
 const DM_OPEN_FEE = Math.floor(DM_PRICE_SOL * LAMPORTS_PER_SOL);
 // Canonical thread ID lookup: always order wallets alphabetically
