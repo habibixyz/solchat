@@ -2,10 +2,9 @@ import { Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL } f
 import { supabase } from '../lib/supabase';
 
 const RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL;
-const CREATOR_WALLET = import.meta.env.VITE_CREATOR_WALLET; // where 0.001 SOL goes
+const CREATOR_WALLET = import.meta.env.VITE_CREATOR_WALLET; // // where DM fee goes
 const DM_PRICE_SOL = 0.0001;
 const DM_OPEN_FEE = Math.floor(DM_PRICE_SOL * LAMPORTS_PER_SOL);
-
 // Canonical thread ID lookup: always order wallets alphabetically
 export function canonicalPair(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
@@ -66,6 +65,9 @@ const tx = new Transaction().add(
 
   // Insert thread row
   const [a, b] = canonicalPair(myWallet, theirWallet);
+  if (a === b) {
+  throw new Error("Cannot create thread with yourself");
+}
   const { data, error } = await supabase
     .from('dm_threads')
     .insert({ participant_a: a, participant_b: b, open_tx: signature })
