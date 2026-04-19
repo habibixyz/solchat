@@ -7,7 +7,10 @@ const DM_PRICE_SOL = 0.0001;
 const DM_OPEN_FEE = Math.floor(DM_PRICE_SOL * LAMPORTS_PER_SOL);
 // Canonical thread ID lookup: always order wallets alphabetically
 export function canonicalPair(a: string, b: string): [string, string] {
-  return a < b ? [a, b] : [b, a];
+  const A = a.toLowerCase();
+  const B = b.toLowerCase();
+
+  return A < B ? [a.toLowerCase(), b.toLowerCase()] : [b.toLowerCase(), a.toLowerCase()];
 }
 
 // ── Check if a thread already exists between two wallets ──────────────────────
@@ -65,12 +68,25 @@ const tx = new Transaction().add(
 
   // Insert thread row
   const [a, b] = canonicalPair(myWallet, theirWallet);
-  if (a === b) {
+  if (!a || !b) {
+  throw new Error("Invalid wallets");
+}
+
+if (a === b) {
   throw new Error("Cannot create thread with yourself");
+}
+
+// optional: ensure proper ordering (extra safe)
+if (a > b) {
+  throw new Error("Invalid wallet order");
 }
   const { data, error } = await supabase
     .from('dm_threads')
-    .insert({ participant_a: a, participant_b: b, open_tx: signature })
+    .insert({
+  participant_a: a.toLowerCase(),
+  participant_b: b.toLowerCase(),
+  open_tx: signature
+})
     .select('id')
     .single();
 
@@ -118,4 +134,23 @@ export async function getThreadMessages(threadId: string) {
 
   if (error) throw error;
   return data ?? [];
+}
+
+// ── Fetch profiles for wallets ───────────────────────────────────────────────
+export async function getProfiles(wallets: string[]) {
+  if (!wallets.length) return {};
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('wallet_address, username, avatar_url')
+    .in('wallet_address', wallets);
+
+  if (error) throw error;
+
+  const map: Record<string, any> = {};
+  data?.forEach((p) => {
+    map[p.wallet_address] = p;
+  });
+
+  return map;
 }

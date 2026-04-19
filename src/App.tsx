@@ -1,101 +1,113 @@
+import { Canvas } from "@react-three/fiber";
+import World from "./three/World";
 import ProfilePage from './pages/ProfilePage';
+import { useEffect } from 'react';
+import { injectBottomNav } from './utils/injectBottomNav';
 import { Routes, Route, NavLink, useLocation, Navigate } from "react-router-dom";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import './styles/mobile-redesign.css';
 
 import ChatLayout from "./components/ChatLayout";
-import GenesisPage from "./ritual/GenesisPage"; // kept in code (hidden)
+import GenesisPage from "./ritual/GenesisPage";
 import ManifestoPage from "./pages/ManifestoPage";
 import DiscoverPage from "./pages/DiscoverPage";
 import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
 import TokenPage from "./pages/TokenPage";
 import { DMPage } from './pages/DMPage';
-import LaunchPage from './pages/LaunchPage';
 
 export default function App() {
   const location = useLocation();
 
+  useEffect(() => {
+    injectBottomNav();
+  }, []);
+
   const isDiscover =
-  location.pathname === "/discover" ||
-  location.pathname.startsWith("/token") ||
-  location.pathname.startsWith("/blog") ||
-  location.pathname.startsWith("/dm");
+    location.pathname === "/discover" ||
+    location.pathname.startsWith("/token") ||
+    location.pathname.startsWith("/blog") ||
+    location.pathname.startsWith("/dm");
 
   const isProfile = location.pathname.startsWith("/profile");
 
+  // Pages that need to scroll freely (not chat)
+  const isScrollPage =
+    location.pathname === "/manifesto" ||
+    location.pathname.startsWith("/blog") ||
+    location.pathname.startsWith("/token");
+
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "radial-gradient(circle at 30% 10%, rgba(0,247,255,0.08), transparent 40%), radial-gradient(circle at 70% 0%, rgba(140,100,255,0.08), transparent 40%), radial-gradient(circle at top, #0f172a, #000)",
-      color: "#cbd5f5",
-      fontFamily: "Inter, system-ui, sans-serif",
-      display: "flex",
-      flexDirection: "column",
-    }}>
+    <div className={`sc-app-root${isScrollPage ? ' sc-app-root--scroll' : ''}`}>
 
-      {/* HEADER */}
-      <header style={{
-        display: "flex",
-        justifyContent: "space-between",
-        padding: "14px 20px",
-        alignItems: "center",
-        flexWrap: "wrap",
-        borderBottom: "1px solid rgba(255,255,255,0.08)",
-        background: "linear-gradient(90deg, rgba(0,247,255,0.05), rgba(140,100,255,0.05))",
-        backdropFilter: "blur(12px)",
-        boxShadow: "0 0 40px rgba(0,247,255,0.08)",
-        position: "relative",
-        zIndex: 10,
-      }}>
-        <div style={{ fontWeight: "bold", letterSpacing: "2px", color: "#00f7ff", textShadow: "0 0 10px rgba(0,247,255,0.7)" }}>
-          SOLCHAT <span style={{ opacity: 0.6 }}>BETA</span>
+      {/* 3D background canvas */}
+      <Canvas
+        className="sc-3d-canvas"
+        style={{
+          position: "fixed",
+          top: 0, left: 0,
+          width: "100%", height: "100%",
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+        camera={{ position: [0, 0, 8], fov: 60 }}
+      >
+        <World />
+      </Canvas>
+
+      {/* ── HEADER ── */}
+      <header className="sc-header">
+
+        {/* Logo */}
+        <div className="sc-logo">
+          SOL<span className="sc-logo-accent">CHAT</span>
+          <span className="sc-logo-beta">BETA</span>
         </div>
 
-        <div style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/chat">Chat</NavLink>
-          <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/discover">Discover</NavLink>
-          <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/manifesto">Manifesto</NavLink>
-          <NavLink style={{ color: "#cbd5f5", textDecoration: "none", fontSize: "14px", opacity: 0.8 }} to="/blog">Blog</NavLink>
-  
-          <WalletMultiButton style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: "#00f7ff", color: "#000", cursor: "pointer", fontWeight: "bold", fontSize: "13px", height: "36px" }} />
+        {/* Desktop nav links — hidden on mobile via CSS */}
+        <nav className="sc-desktop-nav">
+          <NavLink to="/"          className={({ isActive }) => isActive ? "sc-nav-link active" : "sc-nav-link"}>Chat</NavLink>
+          <NavLink to="/discover"  className={({ isActive }) => isActive ? "sc-nav-link active" : "sc-nav-link"}>Discover</NavLink>
+          <NavLink to="/manifesto" className={({ isActive }) => isActive ? "sc-nav-link active" : "sc-nav-link"}>Manifesto</NavLink>
+          <NavLink to="/blog"      className={({ isActive }) => isActive ? "sc-nav-link active" : "sc-nav-link"}>Blog</NavLink>
+        </nav>
+
+        {/* Wallet button */}
+        <div className="sc-wallet-wrap">
+          <WalletMultiButton className="wallet-btn" />
         </div>
+
       </header>
 
-      {/* MAIN */}
-      <main style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: isDiscover || isProfile ? "flex-start" : "center",
-        alignItems: isDiscover || isProfile ? "stretch" : "center",
-        position: "relative",
-        overflow: isDiscover || isProfile ? "hidden" : "visible",
-      }}>
+      {/* ── MAIN ── */}
+      <main className={`sc-main ${isDiscover || isProfile ? "sc-main--full" : "sc-main--center"}`}>
         <Routes>
-          {/* 🔥 root now redirects to chat */}
-          <Route path="/" element={<ChatLayout />} />
-          <Route path="/chat" element={<Navigate to="/" />} />
-          <Route path="/manifesto" element={<ManifestoPage />} />
-          <Route path="/discover" element={<DiscoverPage />} />
-          <Route path="/token/:address" element={<TokenPage />} />
-          <Route path="/profile/:username" element={<ProfilePage />} />
-          <Route path="/blog" element={<Blog />} />
-          <Route path="/blog/:slug" element={<BlogPost />} />
-          <Route path="/dm" element={<DMPage />} />
-          <Route path="/launch" element={<LaunchPage />} />
-
-          {/* 🔒 hidden (still in code, not accessible) */}
-          <Route path="/genesis" element={<GenesisPage />} />
+          <Route path="/"                    element={<ChatLayout />} />
+          <Route path="/chat"                element={<Navigate to="/" />} />
+          <Route path="/manifesto"           element={<ManifestoPage />} />
+          <Route path="/discover"            element={<DiscoverPage />} />
+          <Route path="/token/:address"      element={<TokenPage />} />
+          <Route path="/profile/:username"   element={<ProfilePage />} />
+          <Route path="/blog"                element={<Blog />} />
+          <Route path="/blog/:slug"          element={<BlogPost />} />
+          <Route path="/dm"                  element={<DMPage />} />
+          <Route path="/trending"            element={<ChatLayout />} />
+          <Route path="/notifications"       element={<ChatLayout />} />
+          <Route path="/profile/me"          element={<ProfilePage />} />
+          <Route path="/genesis"             element={<GenesisPage />} />
         </Routes>
       </main>
 
-      {/* FOOTER */}
+      {/* Footer — desktop only, not on discover */}
       {!isDiscover && (
-        <footer style={{ textAlign: "center", padding: "16px", opacity: 0.6, fontSize: "12px" }}>
+        <footer className="sc-footer">
           © 2026 · Solchat.fun · Built by{" "}
           <a href="https://twitter.com/ritmir11" target="_blank" rel="noreferrer">@ritmir11</a>
         </footer>
       )}
+
+      {/* ── BOTTOM NAV — rendered by injectBottomNav, NOT here ── */}
+
     </div>
   );
 }

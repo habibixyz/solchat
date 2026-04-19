@@ -1,4 +1,8 @@
+import './index.css'
+import './styles/theme.css'
 import { Buffer } from "buffer";
+import '@solana/wallet-adapter-react-ui/styles.css';
+
 
 if (!(window as any).Buffer) {
   (window as any).Buffer = Buffer;
@@ -17,6 +21,7 @@ import { BrowserRouter } from "react-router-dom";
 import { WalletContext } from "./wallet/WalletContext";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
+import './styles/mobile-redesign.css';
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

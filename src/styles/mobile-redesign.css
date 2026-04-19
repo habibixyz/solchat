@@ -1,0 +1,304 @@
+/* ═══════════════════════════════════════════════════════════
+   SOLCHAT — mobile-redesign.css  v9  FINAL
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --sc-bg:       #0a0a0b;
+  --sc-surface:  #0f0f12;
+  --sc-accent:   #1D9E75;
+  --sc-sol:      #EF9F27;
+  --sc-text:     #eef2f7;
+  --sc-text-2:   #64748b;
+  --sc-text-3:   #334155;
+  --sc-border:   rgba(255,255,255,0.07);
+  --sc-font:     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --sc-header-h: 52px;
+  --sc-nav-h:    60px;
+  --sc-safe:     env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Global ─────────────────────────────────────────────────── */
+html, body {
+  margin: 0; padding: 0;
+  background: var(--sc-bg) !important;
+  color: var(--sc-text) !important;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Root: flex column, no hard height lock — let pages decide */
+#root {
+  background: var(--sc-bg) !important;
+  min-height: 100vh;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+* { text-shadow: none !important; box-sizing: border-box; }
+
+::-webkit-scrollbar              { width: 3px; height: 3px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+/* ── App root ────────────────────────────────────────────────── */
+/* CHAT pages: locked to viewport, nothing overflows */
+.sc-app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  background: var(--sc-bg);
+  color: var(--sc-text);
+  font-family: var(--sc-font);
+  position: relative;
+}
+
+/* SCROLL pages (manifesto / blog / token): fully unlocked */
+.sc-app-root--scroll {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  overflow-x: hidden !important;
+}
+
+/* Make sure #root doesn't clip scroll pages either */
+.sc-app-root--scroll,
+.sc-app-root--scroll ~ *,
+#root:has(.sc-app-root--scroll) {
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important;
+}
+
+/* sc-main on scroll pages: grow freely */
+.sc-app-root--scroll .sc-main {
+  overflow: visible !important;
+  height: auto !important;
+  min-height: 0 !important;
+  flex: none !important;
+}
+
+/* sc-main--center on scroll pages: don't constrain height */
+.sc-app-root--scroll .sc-main--center {
+  justify-content: flex-start !important;
+  align-items: center !important;
+  overflow: visible !important;
+  height: auto !important;
+}
+
+/* 3D canvas */
+.sc-3d-canvas {
+  opacity: 0.12;
+  pointer-events: none !important;
+}
+@media (max-width: 768px) {
+  .sc-3d-canvas, canvas { display: none !important; }
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.sc-header {
+  height: var(--sc-header-h);
+  min-height: var(--sc-header-h);
+  max-height: var(--sc-header-h);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  background: var(--sc-surface);
+  border-bottom: 0.5px solid var(--sc-border);
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+  flex-shrink: 0;
+}
+
+.sc-logo {
+  font-size: 14px; font-weight: 700; letter-spacing: 2px;
+  color: var(--sc-text); white-space: nowrap; flex-shrink: 0;
+  font-family: var(--sc-font);
+}
+.sc-logo-accent { color: var(--sc-sol); }
+.sc-logo-beta   { font-size: 10px; color: var(--sc-text-3); font-weight: 400; margin-left: 6px; }
+
+.sc-desktop-nav { display: flex; align-items: center; gap: 2px; flex: 1; }
+
+.sc-nav-link {
+  font-size: 13px; color: var(--sc-text-2); text-decoration: none;
+  padding: 6px 12px; border-radius: 7px; transition: all 0.12s;
+  white-space: nowrap; font-family: var(--sc-font);
+}
+.sc-nav-link:hover  { color: var(--sc-text); background: rgba(255,255,255,0.05); }
+.sc-nav-link.active { color: var(--sc-text); background: rgba(255,255,255,0.07); }
+
+.sc-wallet-wrap { margin-left: auto; flex-shrink: 0; }
+
+/* Wallet adapter */
+.wallet-adapter-button,
+.wallet-btn,
+[class*="wallet-adapter-button"] {
+  background: var(--sc-accent) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 0 16px !important;
+  height: 34px !important;
+  font-family: var(--sc-font) !important;
+  box-shadow: none !important;
+  letter-spacing: 0 !important;
+  text-shadow: none !important;
+}
+.wallet-adapter-button:hover { background: #17845f !important; }
+
+/* ── Main ───────────────────────────────────────────────────── */
+.sc-main {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+.sc-main--full   { display: flex; flex-direction: column; align-items: stretch; overflow: hidden; }
+.sc-main--center { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+/* ── Footer ─────────────────────────────────────────────────── */
+.sc-footer {
+  text-align: center; padding: 10px 16px;
+  font-size: 11px; color: var(--sc-text-3);
+  border-top: 0.5px solid var(--sc-border);
+  font-family: var(--sc-font);
+  flex-shrink: 0;
+}
+.sc-footer a { color: var(--sc-accent); text-decoration: none; }
+
+/* ── Kill box-shadows globally ──────────────────────────────── */
+*:not(input):not(textarea):not(button:focus-visible) {
+  box-shadow: none !important;
+}
+
+/* ── Kill ALL input/textarea focus outlines ─────────────────── */
+input, textarea, button,
+input:focus, input:focus-visible, input:active,
+textarea:focus, textarea:focus-visible, textarea:active {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+}
+
+/* ── Kill raw sc-mobile-nav text leak ───────────────────────── */
+.sc-mobile-nav { display: none !important; }
+
+/* ── Bottom nav: hidden by default ─────────────────────────── */
+#sc-bottom-nav { display: none !important; }
+
+/* ── Mobile ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sc-desktop-nav { display: none !important; }
+  .sc-header { padding: 0 14px !important; }
+  .sc-footer  { display: none !important; }
+
+  .wallet-adapter-button,
+  .wallet-btn { font-size: 11px !important; padding: 0 10px !important; height: 30px !important; }
+  .wallet-adapter-button-start-icon,
+  [class*="wallet-adapter-button-start-icon"] { display: none !important; }
+
+  /* Bottom nav visible on mobile */
+  #sc-bottom-nav {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 0 !important; left: 0 !important; right: 0 !important;
+    height: 60px !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    background: #0f0f12 !important;
+    border-top: 0.5px solid rgba(255,255,255,0.1) !important;
+    z-index: 99999 !important;
+    align-items: stretch !important;
+  }
+  #sc-bottom-nav a {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    color: #334155 !important;
+    text-decoration: none !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    font-family: var(--sc-font) !important;
+    transition: color 0.15s !important;
+    padding: 6px 0 !important;
+    border: none !important;
+    background: transparent !important;
+  }
+  #sc-bottom-nav a.active { color: #1D9E75 !important; }
+  #sc-bottom-nav a:hover  { color: #64748b !important; }
+  #sc-bottom-nav svg {
+    width: 20px !important; height: 20px !important;
+    stroke: currentColor !important; fill: none !important;
+    stroke-width: 1.5 !important; stroke-linecap: round !important; stroke-linejoin: round !important;
+  }
+  #sc-bottom-nav span { font-size: 10px !important; line-height: 1 !important; }
+}
+
+/* ── Desktop ─────────────────────────────────────────────────── */
+@media (min-width: 769px) {
+  .sc-desktop-nav { display: flex !important; }
+}
+
+/* ── DM Page ────────────────────────────────────────────────── */
+.dm-root, .dm-root > div { background: var(--sc-bg) !important; }
+.dm-root * { font-family: var(--sc-font) !important; }
+.dm-sidebar { background: var(--sc-surface) !important; border-right: 0.5px solid var(--sc-border) !important; }
+.dm-input-field { font-size: 14px !important; color: var(--sc-text) !important; letter-spacing: 0 !important; }
+.dm-send-btn { background: var(--sc-accent) !important; border: none !important; border-radius: 50% !important; color: #fff !important; box-shadow: none !important; }
+.dm-send-btn:hover:not(:disabled) { background: #17845f !important; }
+
+.dm-bubble-mine div[style] {
+  background: rgba(29,158,117,0.1) !important;
+  border: 0.5px solid rgba(29,158,117,0.3) !important;
+  color: #a7f3d0 !important;
+  box-shadow: none !important;
+  font-family: var(--sc-font) !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+.dm-bubble-theirs div[style] {
+  background: #16161a !important;
+  border: 0.5px solid rgba(255,255,255,0.07) !important;
+  color: #94a3b8 !important;
+  box-shadow: none !important;
+  font-family: var(--sc-font) !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+
+/* ── Profile Page ───────────────────────────────────────────── */
+[style*="radial-gradient"][style*="pointerEvents"],
+[style*="radial-gradient"][style*="pointer-events"] { display: none !important; }
+
+[style*="rgba(10,18,40"] {
+  background: var(--sc-surface) !important;
+  border: 0.5px solid var(--sc-border) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+[style*="rgba(255,255,255,0.03)"] {
+  background: #16161a !important;
+  border-color: var(--sc-border) !important;
+}
+
+[style*="ui-monospace"],
+[style*="'ui-monospace"] { font-family: var(--sc-font) !important; letter-spacing: 0 !important; }
+
+/* ── Wallet modal ───────────────────────────────────────────── */
+.wallet-adapter-modal-wrapper {
+  background: var(--sc-surface) !important;
+  border: 0.5px solid rgba(255,255,255,0.1) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
