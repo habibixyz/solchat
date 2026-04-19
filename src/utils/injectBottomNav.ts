@@ -1,31 +1,29 @@
-/**
- * src/utils/injectBottomNav.ts
- * Call once in App.tsx: useEffect(() => { injectBottomNav(); }, []);
- */
+// src/utils/injectBottomNav.ts
+
 export function injectBottomNav() {
   if (document.getElementById('sc-bottom-nav')) return;
 
-  const nav = document.createElement('nav');
+  const nav = document.createElement('div');
   nav.id = 'sc-bottom-nav';
 
   nav.innerHTML = `
-    <a href="/" data-path="/" aria-label="Feed">
-      <svg viewBox="0 0 24 24"><path d="M3 12L12 3L21 12V21H15V15H9V21H3V12Z"/></svg>
+    <a href="/" data-navlink>
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       <span>Feed</span>
     </a>
-    <a href="/trending" data-path="/trending" aria-label="Trending">
+    <a href="/trending" data-navlink>
       <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
       <span>Trend</span>
     </a>
-    <a href="/dm" data-path="/dm" aria-label="DMs">
+    <a href="/discover" data-navlink>
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Discover</span>
+    </a>
+    <a href="/dm" data-navlink>
       <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
       <span>DMs</span>
     </a>
-    <a href="/notifications" data-path="/notifications" aria-label="Alerts">
-      <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-      <span>Alerts</span>
-    </a>
-    <a href="/profile/me" data-path="/profile" aria-label="Profile">
+    <a href="/profile" data-navlink data-profile>
       <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       <span>Profile</span>
     </a>
@@ -33,36 +31,47 @@ export function injectBottomNav() {
 
   document.body.appendChild(nav);
 
-  function getProfileHref(): string {
+  function resolveProfileLink() {
+    const anchor = nav.querySelector('a[data-profile]') as HTMLAnchorElement | null;
+    if (!anchor) return;
     const name = localStorage.getItem('solchat_name');
-    return (name && name !== 'guest') ? `/profile/${name}` : '/profile/me';
+    if (name && name !== 'guest') {
+      anchor.setAttribute('href', `/profile/${name}`);
+    }
   }
 
-  function syncActive() {
-    const path = window.location.pathname;
-    const profileLink = nav.querySelector<HTMLAnchorElement>('a[data-path="/profile"]');
-    if (profileLink) profileLink.href = getProfileHref();
+  resolveProfileLink();
 
-    nav.querySelectorAll<HTMLAnchorElement>('a').forEach(a => {
-      const ap = a.getAttribute('data-path') ?? '';
-      a.classList.toggle('active', ap === '/' ? path === '/' : path.startsWith(ap));
+  const t = setInterval(() => {
+    const name = localStorage.getItem('solchat_name');
+    if (name && name !== 'guest') {
+      const anchor = nav.querySelector('a[data-profile]') as HTMLAnchorElement | null;
+      if (anchor) anchor.setAttribute('href', `/profile/${name}`);
+      clearInterval(t);
+    }
+  }, 800);
+  setTimeout(() => clearInterval(t), 20000);
+
+  function updateActive() {
+    const path = window.location.pathname;
+    nav.querySelectorAll('a[data-navlink]').forEach((a) => {
+      const href = a.getAttribute('href') ?? '';
+      const isActive = href === '/' ? path === '/' : path.startsWith(href);
+      a.classList.toggle('active', isActive);
     });
   }
 
-  syncActive();
+  updateActive();
 
-  const root = document.getElementById('root');
-  if (root) new MutationObserver(syncActive).observe(root, { childList: true, subtree: false });
-  window.addEventListener('popstate', syncActive);
-
-  nav.querySelectorAll<HTMLAnchorElement>('a').forEach(a => {
-    a.addEventListener('click', e => {
+  nav.querySelectorAll('a[data-navlink]').forEach((a) => {
+    a.addEventListener('click', (e) => {
       e.preventDefault();
-      let href = a.getAttribute('href') ?? '/';
-      if (a.getAttribute('data-path') === '/profile') href = getProfileHref();
+      const href = (a as HTMLAnchorElement).getAttribute('href') ?? '/';
       window.history.pushState({}, '', href);
       window.dispatchEvent(new PopStateEvent('popstate'));
-      syncActive();
+      updateActive();
     });
   });
+
+  window.addEventListener('popstate', updateActive);
 }

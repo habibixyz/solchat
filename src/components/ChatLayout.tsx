@@ -28,6 +28,15 @@ const shortW = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
 const LIMIT = 40;
 type Panel = 'chat' | 'trending' | 'dms' | 'notifications';
 
+// ── Text color tokens — brighter than before ───────────────────────────────
+const T = {
+  body:      '#dde6f0',   // was #cbd5e1 — main message text
+  bodyDim:   '#a8b8cc',   // was #94a3b8 — clustered / secondary text
+  username:  '#c8d8e8',   // was #94a3b8 — other people's names
+  time:      '#4a5a6a',   // unchanged
+  muted:     '#475569',   // unchanged
+};
+
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -43,13 +52,13 @@ const CSS = `
     background: #16161a; border-radius: 12px;
     border: 0.5px solid rgba(255,255,255,0.06); transition: background 0.12s;
   }
-  .cl-row:hover { background: #1c1c22 !important; }
+  .cl-row:hover { background: #1e1e24 !important; }
 
   .sc-reply-btn {
     display: inline-flex !important; align-items: center !important; gap: 5px !important;
     padding: 4px 12px !important; background: transparent !important;
-    border: 0.5px solid rgba(255,255,255,0.1) !important; border-radius: 20px !important;
-    font-size: 12px !important; font-weight: 500 !important; color: #475569 !important;
+    border: 0.5px solid rgba(255,255,255,0.12) !important; border-radius: 20px !important;
+    font-size: 12px !important; font-weight: 500 !important; color: #64748b !important;
     cursor: pointer !important; font-family: 'Inter', sans-serif !important;
     transition: all 0.15s !important; line-height: 1 !important;
   }
@@ -63,7 +72,7 @@ const CSS = `
     display: inline-flex; align-items: center; gap: 5px;
     padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 500;
     font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.15s;
-    border: 0.5px solid rgba(255,255,255,0.07); background: transparent; color: #475569; line-height: 1;
+    border: 0.5px solid rgba(255,255,255,0.08); background: transparent; color: #64748b; line-height: 1;
   }
   .cl-react:not(:disabled):hover { filter: brightness(1.3); }
   .cl-react:disabled { cursor: default; }
@@ -131,17 +140,15 @@ const CSS = `
 const ReplyQuote = ({ username, text }: { username: string; text: string }) => (
   <div style={{
     borderLeft: '2px solid rgba(29,158,117,0.5)',
-    padding: '4px 10px',
-    marginBottom: 6,
+    padding: '4px 10px', marginBottom: 6,
     background: 'rgba(29,158,117,0.06)',
     borderRadius: '0 6px 6px 0',
-    maxWidth: '100%',
-    overflow: 'hidden',
+    maxWidth: '100%', overflow: 'hidden',
   }}>
     <div style={{ fontSize: 11, fontWeight: 700, color: '#1D9E75', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>
       ↩ @{username}
     </div>
-    <div style={{ fontSize: 12, color: '#475569', fontFamily: 'Inter, sans-serif', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+    <div style={{ fontSize: 12, color: '#7a8fa8', fontFamily: 'Inter, sans-serif', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
       {text.slice(0, 100)}{text.length > 100 ? '…' : ''}
     </div>
   </div>
@@ -403,7 +410,7 @@ export default function ChatLayout() {
         <span style={{ fontSize: 18, color: '#1D9E75', lineHeight: 1 }}>{icon}</span>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7', fontFamily: 'Inter, sans-serif' }}>{title}</div>
-          <div style={{ fontSize: 11, color: '#334155', marginTop: 1, fontFamily: 'Inter, sans-serif' }}>{sub}</div>
+          <div style={{ fontSize: 11, color: '#475569', marginTop: 1, fontFamily: 'Inter, sans-serif' }}>{sub}</div>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>{right}</div>
@@ -413,12 +420,11 @@ export default function ChatLayout() {
   const Empty = ({ icon, msg, hint }: { icon: string; msg: string; hint?: string }) => (
     <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', flex: 1, gap: 10, padding: '60px 20px' }}>
       <div style={{ fontSize: 32, opacity: 0.1 }}>{icon}</div>
-      <div style={{ fontSize: 14, color: '#475569', fontFamily: 'Inter, sans-serif' }}>{msg}</div>
-      {hint && <div style={{ fontSize: 12, color: '#334155', fontFamily: 'Inter, sans-serif', textAlign: 'center' as const }}>{hint}</div>}
+      <div style={{ fontSize: 14, color: '#64748b', fontFamily: 'Inter, sans-serif' }}>{msg}</div>
+      {hint && <div style={{ fontSize: 12, color: '#475569', fontFamily: 'Inter, sans-serif', textAlign: 'center' as const }}>{hint}</div>}
     </div>
   );
 
-  // ── Signal + Reply action buttons ─────────────────────────────────────────
   const MsgActions = ({ msg, showReact }: { msg: Message | any; showReact?: boolean }) => {
     const rc   = reactions[msg.id];
     const sigN = rc?.signal ?? 0;
@@ -427,7 +433,7 @@ export default function ChatLayout() {
       <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' as const }}>
         {showReact && myWallet && (
           <button className="cl-react" disabled={mine || !!reactingId} onClick={() => handleReact(msg.id)} title="Signal · 0.0001 SOL"
-            style={{ color: mine ? '#1D9E75' : '#475569', background: mine ? 'rgba(29,158,117,0.08)' : 'transparent', borderColor: mine ? 'rgba(29,158,117,0.25)' : 'rgba(255,255,255,0.07)', opacity: reactingId === msg.id ? 0.5 : 1 }}>
+            style={{ color: mine ? '#1D9E75' : '#64748b', background: mine ? 'rgba(29,158,117,0.08)' : 'transparent', borderColor: mine ? 'rgba(29,158,117,0.25)' : 'rgba(255,255,255,0.08)', opacity: reactingId === msg.id ? 0.5 : 1 }}>
             <span>⚡</span>{sigN > 0 && <span>{sigN}</span>}
           </button>
         )}
@@ -436,7 +442,7 @@ export default function ChatLayout() {
     );
   };
 
-  // ── Full message row (with avatar + username) ──────────────────────────────
+  // ── Full row (avatar + username shown) ────────────────────────────────────
   const MsgRow = ({ msg, rank, showReact }: { msg: Message | any; rank?: number; showReact?: boolean }) => {
     const isAI = msg.username === 'AI';
     const isMe = msg.username === profileName;
@@ -444,29 +450,26 @@ export default function ChatLayout() {
       <div className="cl-row">
         {rank !== undefined && (
           <div style={{ width: 24, flexShrink: 0, paddingTop: 2 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: rank < 3 ? '#1D9E75' : '#334155' }}>#{rank + 1}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: rank < 3 ? '#1D9E75' : '#475569' }}>#{rank + 1}</span>
           </div>
         )}
-        {/* Avatar */}
-        <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, alignSelf: 'flex-start', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: isAI ? 'rgba(99,102,241,0.12)' : isMe ? 'rgba(29,158,117,0.12)' : 'rgba(255,255,255,0.04)', border: `0.5px solid ${isAI ? 'rgba(99,102,241,0.25)' : isMe ? 'rgba(29,158,117,0.3)' : 'rgba(255,255,255,0.07)'}`, color: isAI ? '#a78bfa' : isMe ? '#1D9E75' : '#64748b', fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, alignSelf: 'flex-start', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: isAI ? 'rgba(99,102,241,0.12)' : isMe ? 'rgba(29,158,117,0.12)' : 'rgba(255,255,255,0.05)', border: `0.5px solid ${isAI ? 'rgba(99,102,241,0.25)' : isMe ? 'rgba(29,158,117,0.3)' : 'rgba(255,255,255,0.09)'}`, color: isAI ? '#a78bfa' : isMe ? '#1D9E75' : '#8898aa', fontFamily: 'Inter, sans-serif' }}>
           {isAI ? '⚡' : msg.username.slice(0, 2).toUpperCase()}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Username + time */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' as const }}>
             {isAI
               ? <span style={{ fontSize: 13, fontWeight: 600, color: '#a78bfa', fontFamily: 'Inter, sans-serif' }}>SolChat AI</span>
-              : <span className="cl-un" style={{ fontSize: 13, fontWeight: 600, color: isMe ? '#1D9E75' : '#94a3b8', fontFamily: 'Inter, sans-serif' }} onClick={() => navigate(`/profile/${msg.username}`)}>{msg.username}</span>
+              : <span className="cl-un" style={{ fontSize: 13, fontWeight: 600, color: isMe ? '#1D9E75' : T.username, fontFamily: 'Inter, sans-serif' }} onClick={() => navigate(`/profile/${msg.username}`)}>{msg.username}</span>
             }
-            <span style={{ fontSize: 11, color: '#334155', fontFamily: 'Inter, sans-serif' }}>{timeAgo(msg.created_at)}</span>
+            <span style={{ fontSize: 11, color: T.time, fontFamily: 'Inter, sans-serif' }}>{timeAgo(msg.created_at)}</span>
             {rank !== undefined && (
               <span style={{ marginLeft: 'auto', fontSize: 11, color: '#1D9E75', background: 'rgba(29,158,117,0.08)', border: '0.5px solid rgba(29,158,117,0.2)', borderRadius: 20, padding: '2px 8px', fontFamily: 'Inter, sans-serif' }}>⚡ {msg.reactionCount}</span>
             )}
           </div>
-          {/* Reply quote — Telegram style */}
           {msg.reply_preview && <ReplyQuote username={msg.reply_preview.username} text={msg.reply_preview.text} />}
-          {/* Message body */}
-          <div style={{ fontSize: 14, lineHeight: 1.6, color: isAI ? '#e2e8f0' : '#cbd5e1', wordBreak: 'break-word' as const, whiteSpace: 'pre-wrap' as const, fontFamily: 'Inter, -apple-system, sans-serif' }}>
+          {/* ── BRIGHTER message body text ── */}
+          <div style={{ fontSize: 14, lineHeight: 1.65, color: isAI ? '#e8f0f8' : T.body, wordBreak: 'break-word' as const, whiteSpace: 'pre-wrap' as const, fontFamily: 'Inter, -apple-system, sans-serif' }}>
             {renderText(msg.text)}
           </div>
           <MsgActions msg={msg} showReact={showReact} />
@@ -475,18 +478,16 @@ export default function ChatLayout() {
     );
   };
 
-  // ── Clustered row (same sender back-to-back) — ALWAYS shows name + reply quote ──
+  // ── Clustered row (same sender back-to-back) — name + reply always shown ──
   const ClusteredRow = ({ msg, showReact }: { msg: Message; showReact?: boolean }) => (
     <div className="cl-row" style={{ margin: '2px 10px', padding: '6px 14px 6px 62px', borderRadius: 8 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Always show sender name even in clustered rows */}
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', fontFamily: 'Inter, sans-serif', marginBottom: 4 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', fontFamily: 'Inter, sans-serif', marginBottom: 4 }}>
           {msg.username}
         </div>
-        {/* Reply quote — same Telegram style */}
         {msg.reply_preview && <ReplyQuote username={msg.reply_preview.username} text={msg.reply_preview.text} />}
-        {/* Message body */}
-        <div style={{ fontSize: 14, lineHeight: 1.6, color: '#94a3b8', wordBreak: 'break-word' as const, whiteSpace: 'pre-wrap' as const, fontFamily: 'Inter, sans-serif' }}>
+        {/* ── BRIGHTER clustered message body text ── */}
+        <div style={{ fontSize: 14, lineHeight: 1.65, color: T.bodyDim, wordBreak: 'break-word' as const, whiteSpace: 'pre-wrap' as const, fontFamily: 'Inter, sans-serif' }}>
           {renderText(msg.text)}
         </div>
         <MsgActions msg={msg} showReact={showReact} />
@@ -494,15 +495,13 @@ export default function ChatLayout() {
     </div>
   );
 
-  // Mobile bottom bar heights
   const NAV_H   = 60;
   const INPUT_H = 58;
   const REPLY_H = 52;
   const SAFE    = 'env(safe-area-inset-bottom, 0px)';
-  const bottomTotalH  = replyTo ? `calc(${NAV_H}px + ${INPUT_H}px + ${REPLY_H}px + ${SAFE})` : `calc(${NAV_H}px + ${INPUT_H}px + ${SAFE})`;
+  const bottomTotalH   = replyTo ? `calc(${NAV_H}px + ${INPUT_H}px + ${REPLY_H}px + ${SAFE})` : `calc(${NAV_H}px + ${INPUT_H}px + ${SAFE})`;
   const inputBarBottom = `calc(${NAV_H}px + ${SAFE})`;
 
-  // ── Reply strip — used in both mobile and desktop ──────────────────────────
   const ReplyStrip = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderTop: '0.5px solid rgba(29,158,117,0.3)', background: 'rgba(29,158,117,0.06)' }}>
       <span style={{ color: '#1D9E75', fontSize: 16, flexShrink: 0 }}>↩</span>
@@ -510,31 +509,32 @@ export default function ChatLayout() {
         <div style={{ fontSize: 11, fontWeight: 700, color: '#1D9E75', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>
           Replying to @{replyTo!.username}
         </div>
-        <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'Inter, sans-serif', overflow: 'hidden', whiteSpace: 'nowrap' as const, textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: 12, color: '#7a8fa8', fontFamily: 'Inter, sans-serif', overflow: 'hidden', whiteSpace: 'nowrap' as const, textOverflow: 'ellipsis' }}>
           {replyTo!.text.slice(0, 80)}{replyTo!.text.length > 80 ? '…' : ''}
         </div>
       </div>
-      <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 18, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>✕</button>
+      <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 18, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>✕</button>
     </div>
   );
 
-  // ── Input field — shared markup ────────────────────────────────────────────
   const InputField = () => (
-    <div className="cl-input-wrap" style={{ display: 'flex', gap: 8, alignItems: 'center', background: '#111116', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '10px 12px' }}>
-      <input
-        ref={inputRef}
-        className="cl-inp"
-        value={newMessage}
-        onChange={e => setNewMessage(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter' && !loading) handleSend(); }}
-        placeholder={myWallet ? (replyTo ? `Reply to @${replyTo.username}…` : 'Type a signal...') : 'Connect wallet to post'}
-        style={{ flex: 1, background: 'transparent', border: 'none', color: '#eef2f7', fontSize: 14, outline: 'none', fontFamily: 'Inter, -apple-system, sans-serif' }}
-      />
-      <button onClick={handleSend} disabled={!newMessage.trim() || loading}
-        style={{ background: newMessage.trim() && !loading ? '#1D9E75' : 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 8, color: newMessage.trim() && !loading ? '#fff' : '#334155', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: newMessage.trim() && !loading ? 'pointer' : 'default', flexShrink: 0, fontSize: 15, transition: 'all 0.15s' }}>
-        →
-      </button>
-    </div>
+    <div style={{ padding: '10px 12px', background: '#0a0a0b' }}>
+  <div className="cl-input-wrap" style={{ display: 'flex', gap: 8, alignItems: 'center', background: '#111116', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '10px 12px' }}>
+    <input
+      ref={inputRef}
+      className="cl-inp"
+      value={newMessage}
+      onChange={e => setNewMessage(e.target.value)}
+      onKeyDown={e => { if (e.key === 'Enter' && !loading) handleSend(); }}
+      placeholder={myWallet ? (replyTo ? `Reply to @${replyTo.username}…` : 'Type a signal...') : 'Connect wallet to post'}
+      style={{ flex: 1, background: 'transparent', border: 'none', color: '#eef2f7', fontSize: 14, outline: 'none', fontFamily: 'Inter, -apple-system, sans-serif' }}
+    />
+    <button onClick={handleSend} disabled={!newMessage.trim() || loading}
+      style={{ background: newMessage.trim() && !loading ? '#1D9E75' : 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 8, color: newMessage.trim() && !loading ? '#fff' : '#475569', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: newMessage.trim() && !loading ? 'pointer' : 'default', flexShrink: 0, fontSize: 15, transition: 'all 0.15s' }}>
+      →
+    </button>
+  </div>
+</div>
   );
 
   return (
@@ -547,24 +547,24 @@ export default function ChatLayout() {
             <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: 'rgba(29,158,117,0.1)', border: '0.5px solid rgba(29,158,117,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, color: '#1D9E75' }}>⟁</div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#eef2f7', letterSpacing: 1.5, fontFamily: 'Inter, sans-serif' }}>SOLCHAT</div>
-              <div style={{ fontSize: 10, color: '#334155', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>social trading layer</div>
+              <div style={{ fontSize: 10, color: '#475569', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>social trading layer</div>
             </div>
           </div>
           <nav style={{ padding: '8px 0', borderBottom: '0.5px solid rgba(255,255,255,0.07)' }}>
-            <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, padding: '8px 16px 4px', fontWeight: 600, fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' as const }}>Navigate</div>
+            <div style={{ fontSize: 9, color: '#475569', letterSpacing: 2, padding: '8px 16px 4px', fontWeight: 600, fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' as const }}>Navigate</div>
             <NavList />
           </nav>
           {dmThreads.length > 0 && (
             <div style={{ flex: 1, overflowY: 'auto' as const, minHeight: 0 }}>
-              <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, padding: '8px 16px 4px', fontWeight: 600, fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' as const }}>Messages</div>
+              <div style={{ fontSize: 9, color: '#475569', letterSpacing: 2, padding: '8px 16px 4px', fontWeight: 600, fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' as const }}>Messages</div>
               {dmThreads.slice(0, 8).map(t => (
                 <div key={t.id} className="cl-dm-row" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }} onClick={() => navigate(`/dm?dm=${otherW(t)}`)}>
-                  <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#475569', fontFamily: 'Inter, sans-serif' }}>{(dmNames[t.id] ?? '??').slice(0, 2).toUpperCase()}</div>
+                  <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#8898aa', fontFamily: 'Inter, sans-serif' }}>{(dmNames[t.id] ?? '??').slice(0, 2).toUpperCase()}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, fontFamily: 'Inter, sans-serif' }}>{dmNames[t.id] ?? shortW(otherW(t))}</div>
-                    <div style={{ fontSize: 10, color: '#334155', fontFamily: 'Inter, sans-serif' }}>encrypted</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: T.username, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, fontFamily: 'Inter, sans-serif' }}>{dmNames[t.id] ?? shortW(otherW(t))}</div>
+                    <div style={{ fontSize: 10, color: '#475569', fontFamily: 'Inter, sans-serif' }}>encrypted</div>
                   </div>
-                  <span style={{ color: '#334155', fontSize: 14 }}>›</span>
+                  <span style={{ color: '#475569', fontSize: 14 }}>›</span>
                 </div>
               ))}
             </div>
@@ -573,9 +573,9 @@ export default function ChatLayout() {
             <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: 'rgba(29,158,117,0.1)', border: '0.5px solid rgba(29,158,117,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#1D9E75', fontFamily: 'Inter, sans-serif' }}>{profileName === 'guest' ? '?' : profileName.slice(0, 2).toUpperCase()}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: '#eef2f7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, fontFamily: 'Inter, sans-serif' }}>{profileName}</div>
-              <div style={{ fontSize: 10, color: '#334155', marginTop: 1, fontFamily: 'Inter, sans-serif' }}>{myWallet ? shortW(myWallet) : 'not connected'}</div>
+              <div style={{ fontSize: 10, color: '#475569', marginTop: 1, fontFamily: 'Inter, sans-serif' }}>{myWallet ? shortW(myWallet) : 'not connected'}</div>
             </div>
-            <button style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 7, color: '#475569', cursor: 'pointer', fontSize: 13, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }} onClick={changeName} disabled={nameClaiming} title="Change username">✎</button>
+            <button style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 7, color: '#64748b', cursor: 'pointer', fontSize: 13, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }} onClick={changeName} disabled={nameClaiming} title="Change username">✎</button>
           </div>
         </aside>
       )}
@@ -589,15 +589,13 @@ export default function ChatLayout() {
             right={<>
               <span className="cl-live" style={{ width: 7, height: 7, borderRadius: '50%', background: '#1D9E75', display: 'inline-block', flexShrink: 0 }} />
               {myWallet && profileName !== 'guest' && (
-                <span className="cl-un" style={{ fontSize: 12, color: '#475569', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }} onClick={() => navigate(`/profile/${profileName}`)}>@{profileName} ↗</span>
+                <span className="cl-un" style={{ fontSize: 12, color: '#64748b', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }} onClick={() => navigate(`/profile/${profileName}`)}>@{profileName} ↗</span>
               )}
             </>}
           />
-
-          {/* Message list */}
           <div ref={scrollRef} className="cl-scroll" style={{ flex: 1, overflowY: 'auto' as const, padding: '6px 0', minHeight: 0 }}>
             {oldestDate && (
-              <div style={{ textAlign: 'center', padding: '10px', fontSize: 11, color: '#334155', cursor: 'pointer' }} onClick={loadOlder}>↑ load older</div>
+              <div style={{ textAlign: 'center', padding: '10px', fontSize: 11, color: '#475569', cursor: 'pointer' }} onClick={loadOlder}>↑ load older</div>
             )}
             {messages.map((msg, i) => {
               const clustered = messages[i - 1]?.username === msg.username;
@@ -608,29 +606,56 @@ export default function ChatLayout() {
             <div style={{ height: 8 }} />
           </div>
 
-          {/* ── MOBILE: fixed bottom container (reply strip + input) ── */}
           {isMobile ? (
             <div style={{ position: 'fixed', bottom: inputBarBottom, left: 0, right: 0, zIndex: 100, background: '#0a0a0b' }}>
               {replyTo && <ReplyStrip />}
               <div style={{ padding: '10px' }}>
-                <InputField />
+                <div className="cl-input-wrap" style={{ display: 'flex', gap: 8, alignItems: 'center', background: '#111116', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '10px 12px' }}>
+                  <input
+                    ref={inputRef}
+                    className="cl-inp"
+                    value={newMessage}
+                    onChange={e => setNewMessage(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !loading) handleSend(); }}
+                    placeholder={myWallet ? (replyTo ? `Reply to @${replyTo.username}…` : 'Type a signal...') : 'Connect wallet to post'}
+                    style={{ flex: 1, background: 'transparent', border: 'none', color: '#eef2f7', fontSize: 14, outline: 'none', fontFamily: 'Inter, -apple-system, sans-serif' }}
+                  />
+                  <button onClick={handleSend} disabled={!newMessage.trim() || loading}
+                    style={{ background: newMessage.trim() && !loading ? '#1D9E75' : 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 8, color: newMessage.trim() && !loading ? '#fff' : '#475569', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: newMessage.trim() && !loading ? 'pointer' : 'default', flexShrink: 0, fontSize: 15, transition: 'all 0.15s' }}>
+                    →
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
-            // ── DESKTOP: inline at bottom ──
             <div style={{ flexShrink: 0 }}>
               {replyTo && <ReplyStrip />}
               <div style={{ padding: '10px 12px', background: '#0a0a0b' }}>
-                <InputField />
+                <div className="cl-input-wrap" style={{ display: 'flex', gap: 8, alignItems: 'center', background: '#111116', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '10px 12px' }}>
+                  <input
+                    ref={inputRef}
+                    className="cl-inp"
+                    value={newMessage}
+                    onChange={e => setNewMessage(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !loading) handleSend(); }}
+                    placeholder={myWallet ? (replyTo ? `Reply to @${replyTo.username}…` : 'Type a signal...') : 'Connect wallet to post'}
+                    style={{ flex: 1, background: 'transparent', border: 'none', color: '#eef2f7', fontSize: 14, outline: 'none', fontFamily: 'Inter, -apple-system, sans-serif' }}
+                  />
+                  <button onClick={handleSend} disabled={!newMessage.trim() || loading}
+                    style={{ background: newMessage.trim() && !loading ? '#1D9E75' : 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 8, color: newMessage.trim() && !loading ? '#fff' : '#475569', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: newMessage.trim() && !loading ? 'pointer' : 'default', flexShrink: 0, fontSize: 15, transition: 'all 0.15s' }}>
+                    →
+                  </button>
+                </div>
               </div>
             </div>
           )}
         </PanelWrap>
+              
 
         {/* ── TRENDING ────────────────────────────────────────────────────── */}
         <PanelWrap show={panel === 'trending'}>
           <Header icon="◈" title="Trending Signals" sub="most ⚡ reacted · last 24h"
-            right={<button style={{ background: 'none', border: '0.5px solid rgba(255,255,255,0.08)', color: '#475569', cursor: 'pointer', fontSize: 12, borderRadius: 7, padding: '5px 12px', fontFamily: 'Inter, sans-serif' }}
+            right={<button style={{ background: 'none', border: '0.5px solid rgba(255,255,255,0.08)', color: '#64748b', cursor: 'pointer', fontSize: 12, borderRadius: 7, padding: '5px 12px', fontFamily: 'Inter, sans-serif' }}
               onClick={() => { setTrendingLoad(true); fetchTrending(15).then(t => { setTrending(t); setTrendingLoad(false); }); }}>↻ refresh</button>}
           />
           <div className="cl-scroll" style={{ flex: 1, overflowY: 'auto' as const, padding: '6px 0', minHeight: 0 }}>
@@ -653,9 +678,9 @@ export default function ChatLayout() {
                       <div style={{ width: 40, height: 40, borderRadius: 9, flexShrink: 0, background: 'rgba(29,158,117,0.08)', border: '0.5px solid rgba(29,158,117,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#1D9E75', fontFamily: 'Inter, sans-serif' }}>{name.slice(0, 2).toUpperCase()}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7', marginBottom: 2, fontFamily: 'Inter, sans-serif' }}>{name}</div>
-                        <div style={{ fontSize: 11, color: '#334155', fontFamily: 'Inter, sans-serif' }}>private · encrypted · {shortW(other)}</div>
+                        <div style={{ fontSize: 11, color: '#475569', fontFamily: 'Inter, sans-serif' }}>private · encrypted · {shortW(other)}</div>
                       </div>
-                      <span style={{ color: '#334155', fontSize: 16 }}>›</span>
+                      <span style={{ color: '#475569', fontSize: 16 }}>›</span>
                     </div>
                   );
                 })}
@@ -675,10 +700,10 @@ export default function ChatLayout() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' as const, fontFamily: 'Inter, sans-serif' }}>
                         <span style={{ color: '#1D9E75', fontWeight: 600 }}>@{n.sender_name}</span>
-                        <span style={{ color: '#475569' }}>mentioned you</span>
-                        <span style={{ color: '#334155', marginLeft: 'auto', fontSize: 11 }}>{timeAgo(n.created_at)}</span>
+                        <span style={{ color: '#64748b' }}>mentioned you</span>
+                        <span style={{ color: '#475569', marginLeft: 'auto', fontSize: 11 }}>{timeAgo(n.created_at)}</span>
                       </div>
-                      <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.55, wordBreak: 'break-word' as const, fontFamily: 'Inter, sans-serif' }}>{n.message_preview}</div>
+                      <div style={{ fontSize: 13, color: T.bodyDim, lineHeight: 1.55, wordBreak: 'break-word' as const, fontFamily: 'Inter, sans-serif' }}>{n.message_preview}</div>
                     </div>
                   </div>
                 ))}
