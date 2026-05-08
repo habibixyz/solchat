@@ -12,10 +12,20 @@ dist
 dist-ssr
 *.local
 
-# Environment variables
+# Environment variables — root and all subdirs
 .env
 .env.local
 .env.production
+.env.development
+.env.staging
+**/.env
+**/.env.local
+**/.env.production
+**/.env.development
+
+# Server
+server/node_modules
+server/.env*
 
 # Editor directories and files
 .vscode/*

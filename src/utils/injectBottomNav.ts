@@ -23,7 +23,7 @@ export function injectBottomNav() {
       <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
       <span>DMs</span>
     </a>
-    <a href="/profile" data-navlink data-profile>
+    <a href="/profile/me" data-navlink data-profile>
       <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       <span>Profile</span>
     </a>

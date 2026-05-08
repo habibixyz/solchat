@@ -4,8 +4,8 @@ import { supabase } from "../lib/supabase";
 
 type Message = {
   id: string;
-  username: string;
-  text: string;
+  user_id: string;
+  content: string;
 };
 
 // Shorten wallet addresses for display

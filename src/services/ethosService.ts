@@ -94,7 +94,7 @@ export async function getEthosProfile(twitterHandle: string): Promise<EthosProfi
       reviewStats,
       vouchCount,
       profileUrl,
-      displayName: user.displayName ?? user.username ?? null,
+      displayName: user.displayName ?? user.user_id ?? null,
       avatarUrl: user.avatarUrl ?? null,
     };
 

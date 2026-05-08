@@ -273,7 +273,7 @@ export default function Discover() {
   const iframeRef = useRef(null);
   const [ads] = useState([]);
 
-  const NAVBAR_H     = 64;
+  const NAVBAR_H     = 52;
   const BOTTOM_TAB_H = 52;
 
   useEffect(() => {

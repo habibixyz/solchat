@@ -5,7 +5,7 @@ export default function ManifestoPage() {
 
   const styles: Record<string, React.CSSProperties> = {
     wrap: { maxWidth: 640, margin: "0 auto", padding: "48px 24px 80px", fontFamily: "'Space Mono', monospace", color: "#8aa0b8" },
-    eyebrow: { fontSize: 10, letterSpacing: 4, color: "#00f7ff", textTransform: "uppercase", opacity: 0.6, marginBottom: 16 },
+    eyebrow: { fontSize: 10, letterSpacing: 4, color: "#00f7ff", contentTransform: "uppercase", opacity: 0.6, marginBottom: 16 },
     title: { fontFamily: "'Syne', sans-serif", fontSize: 36, fontWeight: 800, color: "#e2edf8", letterSpacing: -1, margin: "0 0 6px" },
     sub: { fontSize: 12, color: "#3a5a6a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 48 },
     divider: { width: "100%", height: 1, background: "rgba(255,255,255,0.05)", margin: "40px 0" },

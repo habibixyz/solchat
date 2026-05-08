@@ -7,7 +7,7 @@ export default function MessageInput({
 }: {
   currentUser: string;
 }) {
-  const [text, setText] = useState("");
+  const [content, setText] = useState("");
   const [loading, setLoading] = useState(false);
 
   const { connection } = useConnection();

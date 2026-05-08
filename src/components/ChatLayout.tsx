@@ -1,218 +1,213 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { supabase } from '../lib/supabase';
-import { sendPaidMessage } from '../services/sendMessage';
+import { DAILY_FREE_MESSAGE_LIMIT, fetchDailyMessageCount, sendPaidMessage } from '../services/sendMessage';
+import { getMyThreads } from '../services/dmService';
+import { fetchNotifications, fetchUnreadCount, markAllRead } from '../services/notificationService';
+import { fetchReactions, fetchTrending, sendReaction } from '../services/reactionService';
 import SwapDrawer from './SwapDrawer';
 import { MINT_REGEX, TICKER_REGEX } from '../utils/tokenDetector';
-import { getMyThreads } from '../services/dmService';
-import { fetchUnreadCount, fetchNotifications, markAllRead } from '../services/notificationService';
-import { sendReaction, fetchReactions, fetchTrending } from '../services/reactionService';
 
-interface Message {
-  id: string; username: string; text: string; created_at: string;
-  reply_to_id?: string;
-  reply_preview?: { username: string; text: string } | null;
-}
-interface DMThread { id: string; participant_a: string; participant_b: string; created_at: string; }
-
-const usernameCache: Record<string, string> = {};
-async function resolveUsername(wallet: string) {
-  if (usernameCache[wallet]) return usernameCache[wallet];
-  const { data } = await supabase.from('usernames').select('username').eq('wallet_address', wallet).maybeSingle();
-  const name = data?.username || `${wallet.slice(0, 4)}…${wallet.slice(-4)}`;
-  usernameCache[wallet] = name;
-  return name;
-}
-const shortW = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
-const LIMIT = 40;
 type Panel = 'chat' | 'trending' | 'dms' | 'notifications';
 
-// ── Text color tokens — brighter than before ───────────────────────────────
+interface Message {
+  id: string;
+  username: string;
+  wallet_address?: string;
+  user_id?: string;
+  sender_wallet?: string;
+  text: string;
+  created_at: string;
+  reply_to_id?: string | null;
+  reply_preview?: { username: string; text: string } | null;
+  reactionCount?: number;
+}
+
+interface DMThread {
+  id: string;
+  participant_a: string;
+  participant_b: string;
+  created_at: string;
+}
+
+const LIMIT = 40;
+const usernameCache: Record<string, string> = {};
+const walletRe = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+const shortW = (w?: string) => (w ? `${w.slice(0, 4)}...${w.slice(-4)}` : 'unknown');
+const msgWallet = (m: Partial<Message> | any) => m?.wallet_address || m?.sender_wallet || m?.user_id || m?.wallet || '';
+const normalizeToken = (value?: string) => (value || '').replace(/\.{3}|…|â€¦/g, '').toLowerCase();
+const isFallbackName = (name?: string) => {
+  const n = (name || '').trim();
+  return !n || n === 'guest' || n.includes('...') || n.includes('…') || walletRe.test(n);
+};
+
+async function resolveUsername(wallet: string) {
+  if (!wallet) return 'unknown';
+  const key = wallet.toLowerCase();
+  if (usernameCache[wallet]) return usernameCache[wallet];
+  if (usernameCache[key]) return usernameCache[key];
+
+  const { data } = await supabase
+    .from('usernames')
+    .select('wallet_address, username')
+    .ilike('wallet_address', wallet)
+    .maybeSingle();
+
+  const name = data?.username || shortW(wallet);
+  usernameCache[wallet] = name;
+  usernameCache[key] = name;
+  if (data?.wallet_address) usernameCache[data.wallet_address] = name;
+  return name;
+}
+
+async function resolveShortNameToken(name: string) {
+  const key = `name:${name.toLowerCase()}`;
+  if (usernameCache[key]) return usernameCache[key];
+
+  const { data: exact } = await supabase
+    .from('usernames')
+    .select('username')
+    .ilike('username', name)
+    .maybeSingle();
+
+  if (exact?.username) {
+    usernameCache[key] = exact.username;
+    return exact.username;
+  }
+
+  if (!name.includes('...') && !name.includes('…') && !name.includes('â€¦')) return name;
+
+  const compact = normalizeToken(name);
+  const { data: candidates } = await supabase
+    .from('usernames')
+    .select('wallet_address, username')
+    .limit(500);
+
+  const match = candidates?.find((u: any) => {
+    const username = normalizeToken(u.username);
+    const wallet = normalizeToken(u.wallet_address);
+    return (username.startsWith(compact.slice(0, 4)) && username.endsWith(compact.slice(-4))) ||
+      (wallet.startsWith(compact.slice(0, 4)) && wallet.endsWith(compact.slice(-4)));
+  });
+
+  const resolved = match?.username || name;
+  usernameCache[key] = resolved;
+  return resolved;
+}
+
+async function resolveMany(rows: Message[]) {
+  const names: Record<string, string> = {};
+  await Promise.all(rows.map(async row => {
+    if (!isFallbackName(row.username)) {
+      names[row.id] = row.username;
+      return;
+    }
+    const wallet = msgWallet(row);
+    names[row.id] = wallet ? await resolveUsername(wallet) : await resolveShortNameToken(row.username);
+  }));
+  return names;
+}
+
 const T = {
-  body:      '#dde6f0',   // was #cbd5e1 — main message text
-  bodyDim:   '#a8b8cc',   // was #94a3b8 — clustered / secondary text
-  username:  '#c8d8e8',   // was #94a3b8 — other people's names
-  time:      '#4a5a6a',   // unchanged
-  muted:     '#475569',   // unchanged
+  bg: '#08090b',
+  panel: '#101114',
+  panel2: '#15161a',
+  line: 'rgba(255,255,255,0.075)',
+  text: '#e7edf4',
+  dim: '#8491a3',
+  faint: '#4b5565',
+  green: '#1D9E75',
 };
 
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
   .cl, .cl * { box-sizing: border-box; }
-  .cl { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-
-  .cl-scroll::-webkit-scrollbar { width: 3px; }
+  .cl { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .cl-scroll::-webkit-scrollbar { width: 4px; }
   .cl-scroll::-webkit-scrollbar-track { background: transparent; }
-  .cl-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
-
-  .cl-row {
-    display: flex; gap: 12px; padding: 14px 16px; margin: 3px 10px;
-    background: #16161a; border-radius: 12px;
-    border: 0.5px solid rgba(255,255,255,0.06); transition: background 0.12s;
-  }
-  .cl-row:hover { background: #1e1e24 !important; }
-
-  .sc-reply-btn {
-    display: inline-flex !important; align-items: center !important; gap: 5px !important;
-    padding: 4px 12px !important; background: transparent !important;
-    border: 0.5px solid rgba(255,255,255,0.12) !important; border-radius: 20px !important;
-    font-size: 12px !important; font-weight: 500 !important; color: #64748b !important;
-    cursor: pointer !important; font-family: 'Inter', sans-serif !important;
-    transition: all 0.15s !important; line-height: 1 !important;
-  }
-  .sc-reply-btn:hover {
-    color: #1D9E75 !important;
-    border-color: rgba(29,158,117,0.4) !important;
-    background: rgba(29,158,117,0.08) !important;
-  }
-
-  .cl-react {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 4px 11px; border-radius: 20px; font-size: 12px; font-weight: 500;
-    font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.15s;
-    border: 0.5px solid rgba(255,255,255,0.08); background: transparent; color: #64748b; line-height: 1;
-  }
-  .cl-react:not(:disabled):hover { filter: brightness(1.3); }
-  .cl-react:disabled { cursor: default; }
-
-  .cl-nav {
-    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
-    margin: 2px 8px; border-radius: 8px; font-size: 13px; font-family: 'Inter', sans-serif;
-    transition: all 0.12s; cursor: pointer; user-select: none; border-left: 2px solid transparent;
-  }
-  .cl-nav:hover { background: rgba(255,255,255,0.05) !important; color: #eef2f7 !important; }
-  .cl-nav.active { color: #eef2f7 !important; background: rgba(255,255,255,0.06) !important; border-left-color: #1D9E75 !important; }
-
-  .cl-dm-row { transition: background 0.12s; cursor: pointer; }
-  .cl-dm-row:hover { background: rgba(255,255,255,0.04) !important; }
-
-  .cl-un { transition: color 0.12s; cursor: pointer; }
-  .cl-un:hover { color: #1D9E75 !important; }
-
-  .cl-inp { outline: none; }
-  .cl-inp::placeholder { color: #334155; opacity: 1; }
-  .cl-input-wrap:focus-within { border-color: rgba(255,255,255,0.18) !important; }
-
-  .token-chip {
-    display: inline-block; background: rgba(29,158,117,0.1);
-    border: 0.5px solid rgba(29,158,117,0.35); border-radius: 20px;
-    padding: 2px 9px; font-size: 12px; font-weight: 600; color: #1D9E75;
-    cursor: pointer; margin: 0 2px; font-family: 'Space Mono', monospace; transition: background 0.12s;
-  }
-  .token-chip:hover { background: rgba(29,158,117,0.2); }
-
-  @keyframes scPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-  .cl-live { animation: scPulse 2.5s ease infinite; }
-
-  @keyframes scFadeUp { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
-  .cl-fadein { animation: scFadeUp 0.18s ease; }
-
-  #sc-bottom-nav { display: none; }
-  @media (max-width: 768px) {
-    #sc-bottom-nav {
-      display: flex !important; position: fixed !important;
-      bottom: 0 !important; left: 0 !important; right: 0 !important;
-      height: 60px !important; padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-      background: #0f0f12 !important; border-top: 0.5px solid rgba(255,255,255,0.1) !important;
-      z-index: 99999 !important; align-items: stretch !important;
-    }
-    #sc-bottom-nav a {
-      flex: 1 !important; display: flex !important; flex-direction: column !important;
-      align-items: center !important; justify-content: center !important; gap: 4px !important;
-      color: #334155 !important; text-decoration: none !important; font-size: 10px !important;
-      font-weight: 500 !important; font-family: 'Inter', sans-serif !important;
-      transition: color 0.15s !important; padding: 6px 0 !important;
-      border: none !important; background: transparent !important; text-shadow: none !important;
-    }
-    #sc-bottom-nav a.active { color: #1D9E75 !important; }
-    #sc-bottom-nav a:hover  { color: #64748b !important; }
-    #sc-bottom-nav svg {
-      width: 20px !important; height: 20px !important; stroke: currentColor !important;
-      fill: none !important; stroke-width: 1.5 !important; stroke-linecap: round !important; stroke-linejoin: round !important;
-    }
-    #sc-bottom-nav span { font-size: 10px !important; line-height: 1 !important; }
-  }
+  .cl-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.10); border-radius: 10px; }
+  .cl-row { display:flex; gap:10px; padding:11px 12px; margin:2px 8px; background:#121318; border:1px solid rgba(255,255,255,.065); border-radius:8px; }
+  .cl-row:hover { background:#171920; }
+  .cl-nav { display:flex; align-items:center; gap:10px; margin:1px 8px; padding:9px 10px; border-radius:7px; color:#778397; font-size:13px; cursor:pointer; user-select:none; border-left:2px solid transparent; }
+  .cl-nav:hover { background:rgba(255,255,255,.045); color:#e7edf4; }
+  .cl-nav.active { background:rgba(29,158,117,.09); color:#e7edf4; border-left-color:#1D9E75; }
+  .cl-dm-row { cursor:pointer; transition:background .12s; }
+  .cl-dm-row:hover { background:rgba(255,255,255,.045) !important; }
+  .cl-un { cursor:pointer; transition:color .12s; }
+  .cl-un:hover { color:#1D9E75 !important; }
+  .cl-btn { border:1px solid rgba(255,255,255,.09); background:transparent; color:#7f8da1; border-radius:999px; height:26px; padding:0 10px; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
+  .cl-btn:hover:not(:disabled) { color:#e7edf4; border-color:rgba(255,255,255,.16); }
+  .cl-btn:disabled { opacity:.55; cursor:default; }
+  .token-chip { display:inline-block; margin:0 2px; padding:1px 7px; border-radius:999px; border:1px solid rgba(29,158,117,.35); background:rgba(29,158,117,.10); color:#36c497; font-size:12px; font-weight:650; cursor:pointer; }
+  .cl-inp::placeholder { color:#566174; }
+  @keyframes scPulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .cl-live { animation: scPulse 2.2s ease infinite; }
 `;
 
-// ── Telegram-style reply quote ─────────────────────────────────────────────
-const ReplyQuote = ({ username, text }: { username: string; text: string }) => (
-  <div style={{
-    borderLeft: '2px solid rgba(29,158,117,0.5)',
-    padding: '4px 10px', marginBottom: 6,
-    background: 'rgba(29,158,117,0.06)',
-    borderRadius: '0 6px 6px 0',
-    maxWidth: '100%', overflow: 'hidden',
-  }}>
-    <div style={{ fontSize: 11, fontWeight: 700, color: '#1D9E75', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>
-      ↩ @{username}
-    </div>
-    <div style={{ fontSize: 12, color: '#7a8fa8', fontFamily: 'Inter, sans-serif', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-      {text.slice(0, 100)}{text.length > 100 ? '…' : ''}
-    </div>
-  </div>
-);
+function PanelWrap({ show, children }: { show: boolean; children: ReactNode }) {
+  return <div style={{ display: show ? 'flex' : 'none', flex: 1, flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>{children}</div>;
+}
 
-const PanelWrap = ({ show, children }: { show: boolean; children: React.ReactNode }) => (
-  <div style={{ display: show ? 'flex' : 'none', flexDirection: 'column' as const, flex: 1, minHeight: 0, overflow: 'hidden', width: '100%' }}>
-    {children}
-  </div>
-);
+function Badge({ children }: { children: ReactNode }) {
+  return <span style={{ marginLeft: 'auto', minWidth: 18, padding: '1px 6px', borderRadius: 999, background: 'rgba(29,158,117,.12)', color: T.green, border: '1px solid rgba(29,158,117,.25)', fontSize: 10, fontWeight: 700, textAlign: 'center' }}>{children}</span>;
+}
 
 export default function ChatLayout() {
-  const navigate       = useNavigate();
-  const location       = useLocation();
-  const wallet         = useWallet();
-  const myWallet       = wallet.publicKey?.toBase58() ?? '';
+  const navigate = useNavigate();
+  const location = useLocation();
+  const wallet = useWallet();
   const { connection } = useConnection();
+  const myWallet = wallet.publicKey?.toBase58() ?? '';
 
-  const getPanelFromPath = (): Panel => {
-    if (location.pathname.includes('dm'))            return 'dms';
+  const panelFromPath = useCallback((): Panel => {
+    if (location.pathname.includes('trending')) return 'trending';
     if (location.pathname.includes('notifications')) return 'notifications';
-    if (location.pathname.includes('trending'))      return 'trending';
+    if (location.pathname.includes('dm')) return 'dms';
     return 'chat';
-  };
+  }, [location.pathname]);
 
-  const [messages,      setMessages]     = useState<Message[]>([]);
-  const [newMessage,    setNewMessage]   = useState('');
-  const [loading,       setLoading]      = useState(false);
-  const [profileName,   setProfileName]  = useState('guest');
-  const [oldestDate,    setOldestDate]   = useState<string | null>(null);
-  const [nameClaiming,  setNameClaiming] = useState(false);
-  const [activeMint,    setActiveMint]   = useState<string | null>(null);
-  const [isMobile,      setIsMobile]     = useState(window.innerWidth < 768);
-  const [replyTo,       setReplyTo]      = useState<Message | null>(null);
-  const [panel,         setPanel]        = useState<Panel>(getPanelFromPath());
-  const isDMRoute = location.pathname.includes('dm');
-  const [dmThreads,     setDmThreads]    = useState<DMThread[]>([]);
-  const [dmNames,       setDmNames]      = useState<Record<string, string>>({});
-  const [reactions,     setReactions]    = useState<Record<string, any>>({});
-  const [reactingId,    setReactingId]   = useState<string | null>(null);
-  const [trending,      setTrending]     = useState<any[]>([]);
-  const [trendingLoad,  setTrendingLoad] = useState(false);
-  const [notifCount,    setNotifCount]   = useState(0);
+  const [panel, setPanel] = useState<Panel>(panelFromPath);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [displayNames, setDisplayNames] = useState<Record<string, string>>({});
+  const [newMessage, setNewMessage] = useState('');
+  const [profileName, setProfileName] = useState('guest');
+  const [loading, setLoading] = useState(false);
+  const [oldestDate, setOldestDate] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [reactions, setReactions] = useState<Record<string, any>>({});
+  const [reactingId, setReactingId] = useState<string | null>(null);
+  const [trending, setTrending] = useState<Message[]>([]);
+  const [trendingLoad, setTrendingLoad] = useState(false);
+  const [dmThreads, setDmThreads] = useState<DMThread[]>([]);
+  const [dmNames, setDmNames] = useState<Record<string, string>>({});
+  const [notifCount, setNotifCount] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [notifLoad,     setNotifLoad]    = useState(false);
+  const [notifLoad, setNotifLoad] = useState(false);
+  const [freeUsed, setFreeUsed] = useState(0);
+  const [nameClaiming, setNameClaiming] = useState(false);
+  const [activeMint, setActiveMint] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  const scrollRef       = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const initialLoadDone = useRef(false);
-  const inputRef        = useRef<HTMLInputElement>(null);
+
+  const freeLeft = Math.max(0, DAILY_FREE_MESSAGE_LIMIT - freeUsed);
 
   useEffect(() => {
-    if (document.getElementById('cl-css')) return;
-    const s = document.createElement('style');
-    s.id = 'cl-css'; s.textContent = CSS;
-    document.head.appendChild(s);
+    if (!document.getElementById('cl-css')) {
+      const s = document.createElement('style');
+      s.id = 'cl-css';
+      s.textContent = CSS;
+      document.head.appendChild(s);
+    }
   }, []);
 
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
-  }, [messages.length]);
-
-  useEffect(() => { setPanel(getPanelFromPath()); }, [location.pathname]);
+    setPanel(panelFromPath());
+  }, [panelFromPath]);
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
@@ -221,196 +216,265 @@ export default function ChatLayout() {
   }, []);
 
   useEffect(() => {
-    if (!myWallet) { setProfileName('guest'); return; }
-    supabase.from('usernames').select('username').eq('wallet_address', myWallet).maybeSingle()
+    const el = scrollRef.current;
+    if (el && panel === 'chat') requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+  }, [messages.length, panel]);
+
+  const mergeNames = useCallback(async (rows: Message[]) => {
+    const names = await resolveMany(rows);
+    setDisplayNames(prev => ({ ...prev, ...names }));
+  }, []);
+
+  useEffect(() => {
+    if (!myWallet) {
+      setProfileName('guest');
+      setFreeUsed(0);
+      return;
+    }
+
+    supabase
+      .from('usernames')
+      .select('wallet_address, username')
+      .ilike('wallet_address', myWallet)
+      .maybeSingle()
       .then(({ data }) => {
         const name = data?.username || localStorage.getItem('solchat_name') || 'guest';
         setProfileName(name);
-        if (data?.username) localStorage.setItem('solchat_name', data.username);
+        if (data?.username) {
+          localStorage.setItem('solchat_name', data.username);
+          usernameCache[myWallet] = data.username;
+          usernameCache[myWallet.toLowerCase()] = data.username;
+        }
       });
+
+    fetchDailyMessageCount(myWallet).then(setFreeUsed).catch(console.warn);
   }, [myWallet]);
 
   useEffect(() => {
     if (!myWallet) return;
-    getMyThreads(myWallet).then(async threads => {
-      setDmThreads(threads as DMThread[]);
+    getMyThreads(myWallet).then(async raw => {
+      const threads = (raw ?? []) as DMThread[];
+      setDmThreads(threads);
       const names: Record<string, string> = {};
-      await Promise.all((threads as DMThread[]).map(async t => {
+      await Promise.all(threads.map(async t => {
         const other = t.participant_a === myWallet ? t.participant_b : t.participant_a;
         names[t.id] = await resolveUsername(other);
       }));
       setDmNames(names);
-    });
+    }).catch(console.warn);
   }, [myWallet]);
 
   useEffect(() => {
     if (!myWallet) return;
-    fetchUnreadCount(myWallet).then(setNotifCount);
+    fetchUnreadCount(myWallet).then(setNotifCount).catch(console.warn);
     const ch = supabase.channel('notif-rt')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient=eq.${myWallet}` },
-        () => setNotifCount(n => n + 1))
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient=eq.${myWallet}` }, () => setNotifCount(n => n + 1))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [myWallet]);
 
   const fetchLatest = useCallback(async () => {
-    const { data } = await supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(LIMIT);
-    if (data) {
-      const rev = data.reverse();
-      setMessages(rev);
-      if (!initialLoadDone.current) {
-        initialLoadDone.current = true;
-        setTimeout(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight; }, 100);
-      }
-      setOldestDate(rev[0]?.created_at || null);
-      fetchReactions(rev.map(m => m.id), myWallet).then(setReactions);
-    }
-  }, [myWallet]);
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(LIMIT);
 
-  const loadOlder = async () => {
-    if (!oldestDate) return;
-    const { data } = await supabase.from('messages').select('*').lt('created_at', oldestDate).order('created_at', { ascending: false }).limit(LIMIT);
-    if (data?.length) {
-      const rev = data.reverse();
-      setMessages(p => [...rev, ...p]);
-      setOldestDate(rev[0].created_at);
-      fetchReactions(rev.map(m => m.id), myWallet).then(r => setReactions(p => ({ ...p, ...r })));
+    if (error) {
+      console.warn(error);
+      return;
     }
-  };
+
+    const rows = ((data ?? []) as Message[]).reverse();
+    setMessages(rows);
+    setOldestDate(rows[0]?.created_at ?? null);
+    mergeNames(rows);
+    fetchReactions(rows.map(m => m.id), myWallet).then(setReactions).catch(console.warn);
+
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      setTimeout(() => {
+        const el = scrollRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      }, 80);
+    }
+  }, [mergeNames, myWallet]);
 
   useEffect(() => {
     fetchLatest();
     const ch = supabase.channel('msgs-rt')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const msg = payload.new as Message;
-        setMessages(prev => {
-          if (prev.find(m => m.id === msg.id)) return prev;
-          const next = [...prev, msg];
-          return next.length > 80 ? next.slice(-80) : next;
-        });
-        fetchReactions([msg.id], myWallet).then(r => setReactions(prev => ({ ...prev, ...r })));
-      }).subscribe();
+        setMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg].slice(-90));
+        mergeNames([msg]);
+        fetchReactions([msg.id], myWallet).then(r => setReactions(prev => ({ ...prev, ...r }))).catch(console.warn);
+      })
+      .subscribe();
+
     return () => { supabase.removeChannel(ch); };
-  }, [fetchLatest]);
+  }, [fetchLatest, mergeNames, myWallet]);
 
   useEffect(() => {
     const ch = supabase.channel('react-rt')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_reactions' }, payload => {
         const r = payload.new as any;
-        setReactions(p => {
-          const cur = p[r.message_id] ?? { signal: 0, myReactions: new Set() };
-          return { ...p, [r.message_id]: { signal: r.reaction_type === 'signal' ? cur.signal + 1 : cur.signal, myReactions: r.reactor === myWallet ? new Set([...cur.myReactions, r.reaction_type]) : cur.myReactions } };
+        setReactions(prev => {
+          const cur = prev[r.message_id] ?? { signal: 0, myReactions: new Set() };
+          const mine = cur.myReactions instanceof Set ? cur.myReactions : new Set();
+          return {
+            ...prev,
+            [r.message_id]: {
+              signal: r.reaction_type === 'signal' ? cur.signal + 1 : cur.signal,
+              myReactions: r.reactor === myWallet ? new Set([...mine, r.reaction_type]) : mine,
+            },
+          };
         });
-      }).subscribe();
+      })
+      .subscribe();
+
     return () => { supabase.removeChannel(ch); };
   }, [myWallet]);
 
   useEffect(() => {
     if (panel !== 'trending') return;
     setTrendingLoad(true);
-    fetchTrending(15).then(t => { setTrending(t); setTrendingLoad(false); });
-  }, [panel]);
+    fetchTrending(15)
+      .then(async rows => {
+        setTrending(rows);
+        await mergeNames(rows as Message[]);
+      })
+      .catch(console.warn)
+      .finally(() => setTrendingLoad(false));
+  }, [mergeNames, panel]);
 
   useEffect(() => {
     if (panel !== 'notifications' || !myWallet) return;
     setNotifLoad(true);
-    fetchNotifications(myWallet).then(n => { setNotifications(n); setNotifLoad(false); });
-    markAllRead(myWallet).then(() => setNotifCount(0));
+    fetchNotifications(myWallet)
+      .then(setNotifications)
+      .catch(console.warn)
+      .finally(() => setNotifLoad(false));
+    markAllRead(myWallet).then(() => setNotifCount(0)).catch(console.warn);
   }, [panel, myWallet]);
 
-  const changeName = async () => {
-    if (!myWallet) { alert('Connect wallet first'); return; }
-    const name = prompt('Enter display name (3-20 chars):');
-    if (!name || name.length < 3 || name.length > 20) { alert('3-20 characters'); return; }
+  async function loadOlder() {
+    if (!oldestDate) return;
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .lt('created_at', oldestDate)
+      .order('created_at', { ascending: false })
+      .limit(LIMIT);
+
+    if (!data?.length) return;
+    const rows = (data as Message[]).reverse();
+    setMessages(prev => [...rows, ...prev]);
+    setOldestDate(rows[0]?.created_at ?? oldestDate);
+    mergeNames(rows);
+    fetchReactions(rows.map(m => m.id), myWallet).then(r => setReactions(prev => ({ ...prev, ...r }))).catch(console.warn);
+  }
+
+  async function changeName() {
+    if (!myWallet) return alert('Connect wallet first');
+    const name = prompt('Enter display name (3-20 letters, numbers, or underscores):')?.trim();
+    if (!name || name.length < 3 || name.length > 20 || !/^[a-zA-Z0-9_]+$/.test(name)) {
+      return alert('Use 3-20 letters, numbers, or underscores');
+    }
+
     setNameClaiming(true);
     try {
-      const { data: ex } = await supabase.from('usernames').select('wallet_address').eq('username', name).single();
-      if (ex && ex.wallet_address !== myWallet) { alert(`"${name}" is taken`); return; }
-      await supabase.from('usernames').upsert({ wallet_address: myWallet, username: name }, { onConflict: 'wallet_address' });
-      setProfileName(name); localStorage.setItem('solchat_name', name);
-    } finally { setNameClaiming(false); }
-  };
+      const { data: existing } = await supabase.from('usernames').select('wallet_address').ilike('username', name).maybeSingle();
+      if (existing && existing.wallet_address !== myWallet) return alert(`"${name}" is taken`);
+      const { error } = await supabase.from('usernames').upsert({ wallet_address: myWallet, username: name }, { onConflict: 'wallet_address' });
+      if (error) throw error;
+      setProfileName(name);
+      localStorage.setItem('solchat_name', name);
+      usernameCache[myWallet] = name;
+      usernameCache[myWallet.toLowerCase()] = name;
+    } catch (e: any) {
+      alert(`Name update failed: ${e.message}`);
+    } finally {
+      setNameClaiming(false);
+    }
+  }
 
-  const handleSend = async () => {
-    if (!newMessage.trim() || !myWallet) return;
-    const txt = newMessage; const rt = replyTo;
+  async function handleSend() {
+    if (!newMessage.trim()) return;
+    if (!myWallet) return alert('Connect wallet first');
+    if (!profileName || profileName === 'guest') return alert('Set username first');
+    const text = newMessage;
+    const rt = replyTo;
+    setLoading(true);
+    setNewMessage('');
+    setReplyTo(null);
+
     try {
-      setLoading(true); setNewMessage(''); setReplyTo(null);
-      await sendPaidMessage(wallet, connection, txt, profileName, rt?.id ?? null);
-    } catch (e: any) { setNewMessage(txt); setReplyTo(rt); alert(`Failed: ${e.message}`); }
-    finally { setLoading(false); }
-  };
+      await sendPaidMessage(wallet, connection, text, profileName, rt?.id ?? null);
+      setFreeUsed(n => n + 1);
+      setTimeout(() => inputRef.current?.focus(), 40);
+    } catch (e: any) {
+      setNewMessage(text);
+      setReplyTo(rt);
+      alert(`Failed: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const handleReact = async (msgId: string) => {
-    if (!wallet?.publicKey) { alert('Connect wallet first'); return; }
+  async function handleReact(msgId: string) {
+    if (!myWallet) return alert('Connect wallet first');
     if (reactingId) return;
     setReactingId(msgId);
     try {
-      await sendReaction(msgId, wallet.publicKey.toBase58(), 'signal', (wallet.sendTransaction as any).bind(wallet));
-    } catch (e: any) { console.error(e); alert('Reaction failed: ' + e.message); }
-    finally { setReactingId(null); }
-  };
+      await sendReaction(msgId, myWallet, 'signal');
+    } catch (e: any) {
+      alert(`Signal failed: ${e.message}`);
+    } finally {
+      setReactingId(null);
+    }
+  }
 
-  const handleReply = (msg: Message) => {
-    setReplyTo(msg);
-    setTimeout(() => inputRef.current?.focus(), 50);
-  };
+  const nameFor = useCallback((msg: Message) => displayNames[msg.id] || (!isFallbackName(msg.username) ? msg.username : shortW(msgWallet(msg))), [displayNames]);
 
-  const renderText = (text: string) =>
-    text.split(/(\$[A-Z]{2,10}|\b[1-9A-HJ-NP-Za-km-z]{32,44}\b)/g).map((p, i) => {
-      if (MINT_REGEX.test(p)) return <span key={i} className="token-chip" onClick={() => setActiveMint(p)}>{p.slice(0,4)}...{p.slice(-4)}</span>;
-      if (TICKER_REGEX.test(p)) return <span key={i} className="token-chip">{p}</span>;
-      return p.split(/(@[a-zA-Z0-9_]{3,20})/g).map((seg, j) =>
-        seg.startsWith('@') ? <span key={`${i}-${j}`} style={{ color: '#1D9E75', fontWeight: 600 }}>{seg}</span> : seg
-      );
-    });
+  const navItems = useMemo(() => [
+    { id: 'chat' as Panel, icon: '△', label: 'Global Feed' },
+    { id: 'trending' as Panel, icon: '◇', label: 'Trending' },
+    { id: 'dms' as Panel, icon: '□', label: 'Messages', badge: dmThreads.length || undefined },
+    { id: 'notifications' as Panel, icon: '●', label: 'Notifications', badge: notifCount || undefined },
+  ], [dmThreads.length, notifCount]);
 
-  const timeAgo = (d: string) => {
-    const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
-    if (m < 1) return 'now'; if (m < 60) return `${m}m`;
-    const h = Math.floor(m / 60); if (h < 24) return `${h}h`;
-    return `${Math.floor(h / 24)}d`;
+  const goPanel = (next: Panel) => {
+    setPanel(next);
+    const path = next === 'chat' ? '/' : next === 'dms' ? '/dm' : `/${next}`;
+    if (location.pathname !== path) navigate(path);
   };
 
   const otherW = (t: DMThread) => t.participant_a === myWallet ? t.participant_b : t.participant_a;
+  const timeAgo = (d: string) => {
+    const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
+    if (m < 1) return 'now';
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h`;
+    return `${Math.floor(h / 24)}d`;
+  };
 
-  const NAV: { id: Panel; icon: string; label: string; badge?: number }[] = [
-    { id: 'chat',          icon: '⟁', label: 'Global Feed' },
-    { id: 'trending',      icon: '◈', label: 'Trending' },
-    { id: 'dms',           icon: '💬', label: 'Messages', badge: dmThreads.length || undefined },
-    { id: 'notifications', icon: '🔔', label: 'Notifications', badge: notifCount || undefined },
-  ];
+  const renderText = (text = '') => text.split(/(\$[A-Z]{2,10}|\b[1-9A-HJ-NP-Za-km-z]{32,44}\b)/g).map((p, i) => {
+    if (MINT_REGEX.test(p)) return <span key={i} className="token-chip" onClick={() => setActiveMint(p)}>{shortW(p)}</span>;
+    if (TICKER_REGEX.test(p)) return <span key={i} className="token-chip">{p}</span>;
+    return p.split(/(@[a-zA-Z0-9_]{3,20})/g).map((seg, j) => seg.startsWith('@')
+      ? <span key={`${i}-${j}`} style={{ color: T.green, fontWeight: 650 }}>{seg}</span>
+      : seg
+    );
+  });
 
-  const NavList = ({ cb }: { cb?: () => void }) => (
-    <>
-      {NAV.map(it => (
-        <div key={it.id} className={`cl-nav${panel === it.id ? ' active' : ''}`}
-          style={{ color: panel === it.id ? '#eef2f7' : '#64748b', fontWeight: panel === it.id ? 600 : 400 }}
-          onClick={() => { setPanel(it.id); cb?.(); }}>
-          <span style={{ width: 20, textAlign: 'center' as const, fontSize: 14 }}>{it.icon}</span>
-          <span style={{ flex: 1 }}>{it.label}</span>
-          {!!it.badge && <span style={badgeSt}>{it.badge}</span>}
-        </div>
-      ))}
-      <div className="cl-nav" style={{ color: '#64748b' }} onClick={() => { navigate('/discover'); cb?.(); }}>
-        <span style={{ width: 20, textAlign: 'center' as const, fontSize: 14 }}>◎</span><span>Discover</span>
-      </div>
-      {myWallet && profileName !== 'guest' && (
-        <div className="cl-nav" style={{ color: '#64748b' }} onClick={() => { navigate(`/profile/${profileName}`); cb?.(); }}>
-          <span style={{ width: 20, textAlign: 'center' as const, fontSize: 14 }}>◉</span><span>My Profile</span>
-        </div>
-      )}
-    </>
-  );
-
-  const Header = ({ icon, title, sub, right }: { icon: string; title: string; sub: string; right?: React.ReactNode }) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: '#0f0f12', borderBottom: '0.5px solid rgba(255,255,255,0.07)', flexShrink: 0, minHeight: 58 }}>
+  const Header = ({ icon, title, sub, right }: { icon: string; title: string; sub: string; right?: ReactNode }) => (
+    <div style={{ minHeight: 54, padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: T.panel, borderBottom: `1px solid ${T.line}` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {isDMRoute && (<button onClick={() => navigate(-1)} style={{ background: 'none', border: '0.5px solid rgba(255,255,255,0.1)', color: '#64748b', borderRadius: 7, padding: '4px 10px', cursor: 'pointer', fontSize: 13, fontFamily: 'Inter, sans-serif' }}>←</button>)}
-        <span style={{ fontSize: 18, color: '#1D9E75', lineHeight: 1 }}>{icon}</span>
+        <span style={{ color: T.green, fontSize: 16 }}>{icon}</span>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7', fontFamily: 'Inter, sans-serif' }}>{title}</div>
-          <div style={{ fontSize: 11, color: '#475569', marginTop: 1, fontFamily: 'Inter, sans-serif' }}>{sub}</div>
+          <div style={{ color: T.text, fontSize: 14, fontWeight: 700 }}>{title}</div>
+          <div style={{ color: T.faint, fontSize: 11, marginTop: 1 }}>{sub}</div>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>{right}</div>
@@ -418,308 +482,234 @@ export default function ChatLayout() {
   );
 
   const Empty = ({ icon, msg, hint }: { icon: string; msg: string; hint?: string }) => (
-    <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', flex: 1, gap: 10, padding: '60px 20px' }}>
-      <div style={{ fontSize: 32, opacity: 0.1 }}>{icon}</div>
-      <div style={{ fontSize: 14, color: '#64748b', fontFamily: 'Inter, sans-serif' }}>{msg}</div>
-      {hint && <div style={{ fontSize: 12, color: '#475569', fontFamily: 'Inter, sans-serif', textAlign: 'center' as const }}>{hint}</div>}
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8, color: T.dim, padding: 40 }}>
+      <div style={{ fontSize: 28, opacity: .18 }}>{icon}</div>
+      <div style={{ fontSize: 13 }}>{msg}</div>
+      {hint && <div style={{ fontSize: 12, color: T.faint, textAlign: 'center' }}>{hint}</div>}
     </div>
   );
 
-  const MsgActions = ({ msg, showReact }: { msg: Message | any; showReact?: boolean }) => {
-    const rc   = reactions[msg.id];
-    const sigN = rc?.signal ?? 0;
-    const mine = rc?.myReactions?.has('signal') ?? false;
+  const ReplyQuote = ({ username, text }: { username: string; text: string }) => (
+    <div style={{ margin: '5px 0 7px', padding: '6px 9px', borderLeft: `2px solid ${T.green}`, background: 'rgba(29,158,117,.07)', borderRadius: '0 6px 6px 0', overflow: 'hidden' }}>
+      <div style={{ color: T.green, fontSize: 11, fontWeight: 700 }}>reply @{username}</div>
+      <div style={{ color: '#8291a4', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{text}</div>
+    </div>
+  );
+
+  const MsgActions = ({ msg, showReact }: { msg: Message; showReact?: boolean }) => {
+    const rc = reactions[msg.id];
+    const sigN = msg.reactionCount ?? rc?.signal ?? 0;
+    const mine = rc?.myReactions instanceof Set ? rc.myReactions.has('signal') : false;
+
     return (
-      <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' as const }}>
+      <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
         {showReact && myWallet && (
-          <button className="cl-react" disabled={mine || !!reactingId} onClick={() => handleReact(msg.id)} title="Signal · 0.0001 SOL"
-            style={{ color: mine ? '#1D9E75' : '#64748b', background: mine ? 'rgba(29,158,117,0.08)' : 'transparent', borderColor: mine ? 'rgba(29,158,117,0.25)' : 'rgba(255,255,255,0.08)', opacity: reactingId === msg.id ? 0.5 : 1 }}>
-            <span>⚡</span>{sigN > 0 && <span>{sigN}</span>}
+          <button className="cl-btn" disabled={mine || reactingId === msg.id} onClick={() => handleReact(msg.id)} title="Signal">
+            <span style={{ color: mine ? T.green : '#e1b84b' }}>bolt</span>{sigN > 0 && <span>{sigN}</span>}
           </button>
         )}
-        <button className="sc-reply-btn" onClick={() => handleReply(msg)}>↩ reply</button>
+        <button className="cl-btn" onClick={() => { setReplyTo(msg); setTimeout(() => inputRef.current?.focus(), 30); }}>reply</button>
       </div>
     );
   };
 
-  // ── Full row (avatar + username shown) ────────────────────────────────────
-  const MsgRow = ({ msg, rank, showReact }: { msg: Message | any; rank?: number; showReact?: boolean }) => {
-    const isAI = msg.username === 'AI';
-    const isMe = msg.username === profileName;
+  const MsgRow = ({ msg, rank, showReact }: { msg: Message; rank?: number; showReact?: boolean }) => {
+    const displayName = nameFor(msg);
+    const profileTarget = isFallbackName(displayName) ? (msgWallet(msg) || displayName) : displayName;
+    const isAI = displayName === 'AI';
+    const isMe = (!!myWallet && msgWallet(msg) === myWallet) || displayName === profileName;
+
     return (
       <div className="cl-row">
-        {rank !== undefined && (
-          <div style={{ width: 24, flexShrink: 0, paddingTop: 2 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: rank < 3 ? '#1D9E75' : '#475569' }}>#{rank + 1}</span>
-          </div>
-        )}
-        <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, alignSelf: 'flex-start', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, background: isAI ? 'rgba(99,102,241,0.12)' : isMe ? 'rgba(29,158,117,0.12)' : 'rgba(255,255,255,0.05)', border: `0.5px solid ${isAI ? 'rgba(99,102,241,0.25)' : isMe ? 'rgba(29,158,117,0.3)' : 'rgba(255,255,255,0.09)'}`, color: isAI ? '#a78bfa' : isMe ? '#1D9E75' : '#8898aa', fontFamily: 'Inter, sans-serif' }}>
-          {isAI ? '⚡' : msg.username.slice(0, 2).toUpperCase()}
+        {rank !== undefined && <div style={{ width: 22, paddingTop: 2, color: rank < 3 ? T.green : T.faint, fontSize: 11, fontWeight: 800 }}>#{rank + 1}</div>}
+        <div style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: isMe ? 'rgba(29,158,117,.13)' : 'rgba(255,255,255,.045)', border: `1px solid ${isMe ? 'rgba(29,158,117,.28)' : T.line}`, color: isMe ? T.green : '#9aa6b8', fontSize: 11, fontWeight: 800 }}>
+          {isAI ? 'AI' : displayName.slice(0, 2).toUpperCase()}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, flexWrap: 'wrap' as const }}>
-            {isAI
-              ? <span style={{ fontSize: 13, fontWeight: 600, color: '#a78bfa', fontFamily: 'Inter, sans-serif' }}>SolChat AI</span>
-              : <span className="cl-un" style={{ fontSize: 13, fontWeight: 600, color: isMe ? '#1D9E75' : T.username, fontFamily: 'Inter, sans-serif' }} onClick={() => navigate(`/profile/${msg.username}`)}>{msg.username}</span>
-            }
-            <span style={{ fontSize: 11, color: T.time, fontFamily: 'Inter, sans-serif' }}>{timeAgo(msg.created_at)}</span>
-            {rank !== undefined && (
-              <span style={{ marginLeft: 'auto', fontSize: 11, color: '#1D9E75', background: 'rgba(29,158,117,0.08)', border: '0.5px solid rgba(29,158,117,0.2)', borderRadius: 20, padding: '2px 8px', fontFamily: 'Inter, sans-serif' }}>⚡ {msg.reactionCount}</span>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="cl-un" onClick={() => navigate(`/profile/${encodeURIComponent(profileTarget)}`)} style={{ color: isMe ? T.green : '#cbd7e6', fontSize: 13, fontWeight: 750 }}>{isAI ? 'SolChat AI' : displayName}</span>
+            <span style={{ color: T.faint, fontSize: 11 }}>{timeAgo(msg.created_at)}</span>
+            {rank !== undefined && <Badge>{msg.reactionCount ?? 0}</Badge>}
           </div>
-          {msg.reply_preview && <ReplyQuote username={msg.reply_preview.username} text={msg.reply_preview.text} />}
-          {/* ── BRIGHTER message body text ── */}
-          <div style={{ fontSize: 14, lineHeight: 1.65, color: isAI ? '#e8f0f8' : T.body, wordBreak: 'break-word' as const, whiteSpace: 'pre-wrap' as const, fontFamily: 'Inter, -apple-system, sans-serif' }}>
-            {renderText(msg.text)}
-          </div>
+          {msg.reply_preview && <ReplyQuote username={msg.reply_preview.username} text={msg.reply_preview.text || ''} />}
+          <div style={{ color: T.text, fontSize: 14, lineHeight: 1.55, marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{renderText(msg.text)}</div>
           <MsgActions msg={msg} showReact={showReact} />
         </div>
       </div>
     );
   };
 
-  // ── Clustered row (same sender back-to-back) — name + reply always shown ──
-  const ClusteredRow = ({ msg, showReact }: { msg: Message; showReact?: boolean }) => (
-    <div className="cl-row" style={{ margin: '2px 10px', padding: '6px 14px 6px 62px', borderRadius: 8 }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', fontFamily: 'Inter, sans-serif', marginBottom: 4 }}>
-          {msg.username}
+  const ClusteredRow = ({ msg, showReact }: { msg: Message; showReact?: boolean }) => {
+    const displayName = nameFor(msg);
+    return (
+      <div className="cl-row" style={{ padding: '7px 12px 8px 56px', borderRadius: 7 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: T.dim, fontSize: 11, fontWeight: 700, marginBottom: 3 }}>{displayName}</div>
+          {msg.reply_preview && <ReplyQuote username={msg.reply_preview.username} text={msg.reply_preview.text || ''} />}
+          <div style={{ color: '#c8d3df', fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{renderText(msg.text)}</div>
+          <MsgActions msg={msg} showReact={showReact} />
         </div>
-        {msg.reply_preview && <ReplyQuote username={msg.reply_preview.username} text={msg.reply_preview.text} />}
-        {/* ── BRIGHTER clustered message body text ── */}
-        <div style={{ fontSize: 14, lineHeight: 1.65, color: T.bodyDim, wordBreak: 'break-word' as const, whiteSpace: 'pre-wrap' as const, fontFamily: 'Inter, sans-serif' }}>
-          {renderText(msg.text)}
+      </div>
+    );
+  };
+
+  const renderInputBar = () => (
+    <div style={{ padding: isMobile ? '8px 10px' : '9px 12px', background: T.bg, borderTop: `1px solid ${T.line}` }}>
+      {replyTo && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, color: T.dim, fontSize: 12 }}>
+          <span style={{ color: T.green }}>replying to @{nameFor(replyTo)}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{replyTo.text}</span>
+          <button onClick={() => setReplyTo(null)} style={{ marginLeft: 'auto', border: 'none', background: 'transparent', color: T.dim, cursor: 'pointer' }}>x</button>
         </div>
-        <MsgActions msg={msg} showReact={showReact} />
+      )}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: '#111217', border: `1px solid ${T.line}`, borderRadius: 9, padding: '8px 9px' }}>
+        <input
+          ref={inputRef}
+          className="cl-inp"
+          value={newMessage}
+          onChange={e => setNewMessage(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !loading) handleSend(); }}
+          placeholder={!myWallet ? 'Connect wallet to post' : profileName === 'guest' ? 'Set a username first (click Edit)' : `Signal the market... ${freeLeft}/${DAILY_FREE_MESSAGE_LIMIT} free today`}
+          style={{ flex: 1, minWidth: 0, height: 28, background: 'transparent', border: 'none', outline: 'none', color: T.text, fontSize: 14 }}
+        />
+        <button
+          onClick={handleSend}
+          disabled={!newMessage.trim() || loading || !myWallet || profileName === 'guest'}
+          style={{ width: 32, height: 32, border: 'none', borderRadius: 7, background: (newMessage.trim() && !loading && myWallet && profileName !== 'guest') ? T.green : 'rgba(255,255,255,.055)', color: (newMessage.trim() && !loading && myWallet && profileName !== 'guest') ? '#fff' : T.faint, cursor: (newMessage.trim() && !loading && myWallet && profileName !== 'guest') ? 'pointer' : 'default', fontSize: 15 }}
+        >
+          →
+        </button>
       </div>
     </div>
   );
 
-  const NAV_H   = 60;
-  const INPUT_H = 58;
-  const REPLY_H = 52;
-  const SAFE    = 'env(safe-area-inset-bottom, 0px)';
-  const bottomTotalH   = replyTo ? `calc(${NAV_H}px + ${INPUT_H}px + ${REPLY_H}px + ${SAFE})` : `calc(${NAV_H}px + ${INPUT_H}px + ${SAFE})`;
-  const inputBarBottom = `calc(${NAV_H}px + ${SAFE})`;
-
-  const ReplyStrip = () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderTop: '0.5px solid rgba(29,158,117,0.3)', background: 'rgba(29,158,117,0.06)' }}>
-      <span style={{ color: '#1D9E75', fontSize: 16, flexShrink: 0 }}>↩</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#1D9E75', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>
-          Replying to @{replyTo!.username}
+  const nav = (
+    <>
+      {navItems.map(it => (
+        <div key={it.id} className={`cl-nav${panel === it.id ? ' active' : ''}`} onClick={() => goPanel(it.id)}>
+          <span style={{ width: 18, textAlign: 'center' }}>{it.icon}</span>
+          <span>{it.label}</span>
+          {!!it.badge && <Badge>{it.badge}</Badge>}
         </div>
-        <div style={{ fontSize: 12, color: '#7a8fa8', fontFamily: 'Inter, sans-serif', overflow: 'hidden', whiteSpace: 'nowrap' as const, textOverflow: 'ellipsis' }}>
-          {replyTo!.text.slice(0, 80)}{replyTo!.text.length > 80 ? '…' : ''}
-        </div>
-      </div>
-      <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 18, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>✕</button>
-    </div>
+      ))}
+      <div className="cl-nav" onClick={() => navigate('/discover')}><span style={{ width: 18, textAlign: 'center' }}>○</span><span>Discover</span></div>
+      {myWallet && profileName !== 'guest' && <div className="cl-nav" onClick={() => navigate(`/profile/${encodeURIComponent(profileName)}`)}><span style={{ width: 18, textAlign: 'center' }}>◉</span><span>My Profile</span></div>}
+    </>
   );
 
-  const InputField = () => (
-    <div style={{ padding: '10px 12px', background: '#0a0a0b' }}>
-  <div className="cl-input-wrap" style={{ display: 'flex', gap: 8, alignItems: 'center', background: '#111116', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '10px 12px' }}>
-    <input
-      ref={inputRef}
-      className="cl-inp"
-      value={newMessage}
-      onChange={e => setNewMessage(e.target.value)}
-      onKeyDown={e => { if (e.key === 'Enter' && !loading) handleSend(); }}
-      placeholder={myWallet ? (replyTo ? `Reply to @${replyTo.username}…` : 'Type a signal...') : 'Connect wallet to post'}
-      style={{ flex: 1, background: 'transparent', border: 'none', color: '#eef2f7', fontSize: 14, outline: 'none', fontFamily: 'Inter, -apple-system, sans-serif' }}
-    />
-    <button onClick={handleSend} disabled={!newMessage.trim() || loading}
-      style={{ background: newMessage.trim() && !loading ? '#1D9E75' : 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 8, color: newMessage.trim() && !loading ? '#fff' : '#475569', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: newMessage.trim() && !loading ? 'pointer' : 'default', flexShrink: 0, fontSize: 15, transition: 'all 0.15s' }}>
-      →
-    </button>
-  </div>
-</div>
-  );
+  const rootStyle: CSSProperties = {
+    display: 'flex',
+    width: '100%',
+    height: 'calc(100vh - 52px)',
+    maxHeight: 'calc(100vh - 52px)',
+    background: T.bg,
+    color: T.text,
+    overflow: 'hidden',
+  };
 
   return (
-    <div className="cl" style={{ display: 'flex', height: `calc(100vh - 52px)`, maxHeight: `calc(100vh - 52px)`, width: '100%', background: '#0a0a0b', overflow: 'hidden', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
-
-      {/* ══ SIDEBAR (desktop only) ══════════════════════════════════════════ */}
+    <div className="cl" style={rootStyle}>
       {!isMobile && (
-        <aside style={{ width: 240, minWidth: 240, maxWidth: 240, flexShrink: 0, display: 'flex', flexDirection: 'column' as const, background: '#0f0f12', borderRight: '0.5px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 16px', borderBottom: '0.5px solid rgba(255,255,255,0.07)' }}>
-            <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: 'rgba(29,158,117,0.1)', border: '0.5px solid rgba(29,158,117,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, color: '#1D9E75' }}>⟁</div>
+        <aside style={{ width: 264, flexShrink: 0, background: '#0c0d10', borderRight: `1px solid ${T.line}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '16px 14px', borderBottom: `1px solid ${T.line}` }}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid rgba(29,158,117,.28)', background: 'rgba(29,158,117,.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.green }}>△</div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#eef2f7', letterSpacing: 1.5, fontFamily: 'Inter, sans-serif' }}>SOLCHAT</div>
-              <div style={{ fontSize: 10, color: '#475569', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>social trading layer</div>
+              <div style={{ fontSize: 13, fontWeight: 850, letterSpacing: 1.2 }}>SOLCHAT</div>
+              <div style={{ fontSize: 10, color: T.faint }}>social trading layer</div>
             </div>
           </div>
-          <nav style={{ padding: '8px 0', borderBottom: '0.5px solid rgba(255,255,255,0.07)' }}>
-            <div style={{ fontSize: 9, color: '#475569', letterSpacing: 2, padding: '8px 16px 4px', fontWeight: 600, fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' as const }}>Navigate</div>
-            <NavList />
-          </nav>
+          <div style={{ padding: '8px 0', borderBottom: `1px solid ${T.line}` }}>
+            <div style={{ color: T.faint, fontSize: 9, letterSpacing: 2, padding: '7px 16px 5px', textTransform: 'uppercase', fontWeight: 800 }}>Navigate</div>
+            {nav}
+          </div>
           {dmThreads.length > 0 && (
-            <div style={{ flex: 1, overflowY: 'auto' as const, minHeight: 0 }}>
-              <div style={{ fontSize: 9, color: '#475569', letterSpacing: 2, padding: '8px 16px 4px', fontWeight: 600, fontFamily: 'Inter, sans-serif', textTransform: 'uppercase' as const }}>Messages</div>
-              {dmThreads.slice(0, 8).map(t => (
-                <div key={t.id} className="cl-dm-row" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }} onClick={() => navigate(`/dm?dm=${otherW(t)}`)}>
-                  <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.09)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#8898aa', fontFamily: 'Inter, sans-serif' }}>{(dmNames[t.id] ?? '??').slice(0, 2).toUpperCase()}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: T.username, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, fontFamily: 'Inter, sans-serif' }}>{dmNames[t.id] ?? shortW(otherW(t))}</div>
-                    <div style={{ fontSize: 10, color: '#475569', fontFamily: 'Inter, sans-serif' }}>encrypted</div>
+            <div className="cl-scroll" style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingTop: 6 }}>
+              <div style={{ color: T.faint, fontSize: 9, letterSpacing: 2, padding: '7px 16px 5px', textTransform: 'uppercase', fontWeight: 800 }}>Messages</div>
+              {dmThreads.slice(0, 8).map(t => {
+                const other = otherW(t);
+                const name = dmNames[t.id] ?? shortW(other);
+                return (
+                  <div key={t.id} className="cl-dm-row" onClick={() => navigate(`/dm?dm=${other}`)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 14px' }}>
+                    <div style={{ width: 30, height: 30, borderRadius: 7, background: 'rgba(255,255,255,.045)', border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9aa6b8', fontSize: 10, fontWeight: 800 }}>{name.slice(0, 2).toUpperCase()}</div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ color: '#d8e1ec', fontSize: 12, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                      <div style={{ color: T.faint, fontSize: 10 }}>encrypted</div>
+                    </div>
                   </div>
-                  <span style={{ color: '#475569', fontSize: 14 }}>›</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderTop: '0.5px solid rgba(255,255,255,0.07)', marginTop: 'auto' as const }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: 'rgba(29,158,117,0.1)', border: '0.5px solid rgba(29,158,117,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#1D9E75', fontFamily: 'Inter, sans-serif' }}>{profileName === 'guest' ? '?' : profileName.slice(0, 2).toUpperCase()}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#eef2f7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, fontFamily: 'Inter, sans-serif' }}>{profileName}</div>
-              <div style={{ fontSize: 10, color: '#475569', marginTop: 1, fontFamily: 'Inter, sans-serif' }}>{myWallet ? shortW(myWallet) : 'not connected'}</div>
+          <div style={{ borderTop: `1px solid ${T.line}`, padding: 12, display: 'flex', alignItems: 'center', gap: 9 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 7, background: 'rgba(29,158,117,.10)', border: '1px solid rgba(29,158,117,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.green, fontWeight: 850, fontSize: 11 }}>{profileName === 'guest' ? '?' : profileName.slice(0, 2).toUpperCase()}</div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 12, color: T.text, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profileName}</div>
+              <div style={{ fontSize: 10, color: T.faint }}>{myWallet ? `${freeLeft}/${DAILY_FREE_MESSAGE_LIMIT} free left` : 'not connected'}</div>
             </div>
-            <button style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 7, color: '#64748b', cursor: 'pointer', fontSize: 13, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }} onClick={changeName} disabled={nameClaiming} title="Change username">✎</button>
+            <button onClick={changeName} disabled={nameClaiming} title="Change username" style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${T.line}`, background: 'rgba(255,255,255,.035)', color: T.dim, cursor: 'pointer' }}>edit</button>
           </div>
         </aside>
       )}
 
-      {/* ══ MAIN ════════════════════════════════════════════════════════════ */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, minWidth: 0, overflow: 'hidden', paddingBottom: isMobile ? bottomTotalH : '0' }}>
-
-        {/* ── GLOBAL FEED ─────────────────────────────────────────────────── */}
+      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingBottom: isMobile ? 58 : 0 }}>
         <PanelWrap show={panel === 'chat'}>
-          <Header icon="⟁" title="Global Signal" sub="public · pay-to-post · 0.001 SOL"
-            right={<>
-              <span className="cl-live" style={{ width: 7, height: 7, borderRadius: '50%', background: '#1D9E75', display: 'inline-block', flexShrink: 0 }} />
-              {myWallet && profileName !== 'guest' && (
-                <span className="cl-un" style={{ fontSize: 12, color: '#64748b', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }} onClick={() => navigate(`/profile/${profileName}`)}>@{profileName} ↗</span>
-              )}
-            </>}
-          />
-          <div ref={scrollRef} className="cl-scroll" style={{ flex: 1, overflowY: 'auto' as const, padding: '6px 0', minHeight: 0 }}>
-            {oldestDate && (
-              <div style={{ textAlign: 'center', padding: '10px', fontSize: 11, color: '#475569', cursor: 'pointer' }} onClick={loadOlder}>↑ load older</div>
-            )}
+          <Header icon="△" title="Global Signal" sub={`public · free ${DAILY_FREE_MESSAGE_LIMIT}/day per wallet`} right={<><span className="cl-live" style={{ width: 7, height: 7, borderRadius: 99, background: T.green }} />{profileName !== 'guest' && <span className="cl-un" onClick={() => navigate(`/profile/${encodeURIComponent(profileName)}`)} style={{ color: T.dim, fontSize: 12 }}>@{profileName}</span>}</>} />
+          <div ref={scrollRef} className="cl-scroll" style={{ flex: 1, overflowY: 'auto', padding: '6px 0', minHeight: 0 }}>
+            {oldestDate && <div onClick={loadOlder} style={{ color: T.faint, textAlign: 'center', fontSize: 11, padding: 8, cursor: 'pointer' }}>load older</div>}
             {messages.map((msg, i) => {
-              const clustered = messages[i - 1]?.username === msg.username;
-              return clustered
-                ? <ClusteredRow key={msg.id} msg={msg} showReact />
-                : <MsgRow key={msg.id} msg={msg} showReact />;
+              const prev = messages[i - 1];
+              const clustered = !!prev && ((msgWallet(prev) && msgWallet(prev) === msgWallet(msg)) || nameFor(prev) === nameFor(msg));
+              return clustered ? <ClusteredRow key={msg.id} msg={msg} showReact /> : <MsgRow key={msg.id} msg={msg} showReact />;
             })}
             <div style={{ height: 8 }} />
           </div>
-
-          {isMobile ? (
-            <div style={{ position: 'fixed', bottom: inputBarBottom, left: 0, right: 0, zIndex: 100, background: '#0a0a0b' }}>
-              {replyTo && <ReplyStrip />}
-              <div style={{ padding: '10px' }}>
-                <div className="cl-input-wrap" style={{ display: 'flex', gap: 8, alignItems: 'center', background: '#111116', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '10px 12px' }}>
-                  <input
-                    ref={inputRef}
-                    className="cl-inp"
-                    value={newMessage}
-                    onChange={e => setNewMessage(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !loading) handleSend(); }}
-                    placeholder={myWallet ? (replyTo ? `Reply to @${replyTo.username}…` : 'Type a signal...') : 'Connect wallet to post'}
-                    style={{ flex: 1, background: 'transparent', border: 'none', color: '#eef2f7', fontSize: 14, outline: 'none', fontFamily: 'Inter, -apple-system, sans-serif' }}
-                  />
-                  <button onClick={handleSend} disabled={!newMessage.trim() || loading}
-                    style={{ background: newMessage.trim() && !loading ? '#1D9E75' : 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 8, color: newMessage.trim() && !loading ? '#fff' : '#475569', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: newMessage.trim() && !loading ? 'pointer' : 'default', flexShrink: 0, fontSize: 15, transition: 'all 0.15s' }}>
-                    →
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ flexShrink: 0 }}>
-              {replyTo && <ReplyStrip />}
-              <div style={{ padding: '10px 12px', background: '#0a0a0b' }}>
-                <div className="cl-input-wrap" style={{ display: 'flex', gap: 8, alignItems: 'center', background: '#111116', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '10px 12px' }}>
-                  <input
-                    ref={inputRef}
-                    className="cl-inp"
-                    value={newMessage}
-                    onChange={e => setNewMessage(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !loading) handleSend(); }}
-                    placeholder={myWallet ? (replyTo ? `Reply to @${replyTo.username}…` : 'Type a signal...') : 'Connect wallet to post'}
-                    style={{ flex: 1, background: 'transparent', border: 'none', color: '#eef2f7', fontSize: 14, outline: 'none', fontFamily: 'Inter, -apple-system, sans-serif' }}
-                  />
-                  <button onClick={handleSend} disabled={!newMessage.trim() || loading}
-                    style={{ background: newMessage.trim() && !loading ? '#1D9E75' : 'rgba(255,255,255,0.05)', border: 'none', borderRadius: 8, color: newMessage.trim() && !loading ? '#fff' : '#475569', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: newMessage.trim() && !loading ? 'pointer' : 'default', flexShrink: 0, fontSize: 15, transition: 'all 0.15s' }}>
-                    →
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {renderInputBar()}
         </PanelWrap>
-              
 
-        {/* ── TRENDING ────────────────────────────────────────────────────── */}
         <PanelWrap show={panel === 'trending'}>
-          <Header icon="◈" title="Trending Signals" sub="most ⚡ reacted · last 24h"
-            right={<button style={{ background: 'none', border: '0.5px solid rgba(255,255,255,0.08)', color: '#64748b', cursor: 'pointer', fontSize: 12, borderRadius: 7, padding: '5px 12px', fontFamily: 'Inter, sans-serif' }}
-              onClick={() => { setTrendingLoad(true); fetchTrending(15).then(t => { setTrending(t); setTrendingLoad(false); }); }}>↻ refresh</button>}
-          />
-          <div className="cl-scroll" style={{ flex: 1, overflowY: 'auto' as const, padding: '6px 0', minHeight: 0 }}>
-            {trendingLoad ? <Empty icon="◈" msg="Loading..." />
-              : trending.length === 0 ? <Empty icon="◈" msg="No trending yet" hint="⚡ react to messages to start trending" />
-              : trending.map((msg, i) => <MsgRow key={msg.id} msg={msg} rank={i} showReact />)}
+          <Header icon="◇" title="Trending Signals" sub="most signaled · last 24h" right={<button className="cl-btn" onClick={() => { setTrendingLoad(true); fetchTrending(15).then(rows => { setTrending(rows); mergeNames(rows as Message[]); }).finally(() => setTrendingLoad(false)); }}>refresh</button>} />
+          <div className="cl-scroll" style={{ flex: 1, overflowY: 'auto', padding: '6px 0' }}>
+            {trendingLoad ? <Empty icon="◇" msg="Loading..." /> : trending.length === 0 ? <Empty icon="◇" msg="No trending yet" hint="Signal posts to rank them here." /> : trending.map((msg, i) => <MsgRow key={msg.id} msg={msg} rank={i} showReact />)}
           </div>
         </PanelWrap>
 
-        {/* ── DMs ─────────────────────────────────────────────────────────── */}
         <PanelWrap show={panel === 'dms'}>
-          <Header icon="💬" title="Direct Messages" sub="private · encrypted threads" />
-          <div className="cl-scroll" style={{ flex: 1, overflowY: 'auto' as const, padding: '12px 14px', display: 'flex', flexDirection: 'column' as const, gap: 8, minHeight: 0 }}>
-            {!myWallet ? <Empty icon="💬" msg="Connect wallet" hint="to access your direct messages" />
-              : dmThreads.length === 0 ? <Empty icon="⟁" msg="No threads yet" hint="Go to any profile and hit Direct Message" />
-              : dmThreads.map(t => {
-                  const other = otherW(t); const name = dmNames[t.id] ?? shortW(other);
-                  return (
-                    <div key={t.id} className="cl-dm-row" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px', background: '#16161a', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: 12 }} onClick={() => navigate(`/dm?dm=${other}`)}>
-                      <div style={{ width: 40, height: 40, borderRadius: 9, flexShrink: 0, background: 'rgba(29,158,117,0.08)', border: '0.5px solid rgba(29,158,117,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#1D9E75', fontFamily: 'Inter, sans-serif' }}>{name.slice(0, 2).toUpperCase()}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: '#eef2f7', marginBottom: 2, fontFamily: 'Inter, sans-serif' }}>{name}</div>
-                        <div style={{ fontSize: 11, color: '#475569', fontFamily: 'Inter, sans-serif' }}>private · encrypted · {shortW(other)}</div>
-                      </div>
-                      <span style={{ color: '#475569', fontSize: 16 }}>›</span>
-                    </div>
-                  );
-                })}
-          </div>
-        </PanelWrap>
-
-        {/* ── NOTIFICATIONS ───────────────────────────────────────────────── */}
-        <PanelWrap show={panel === 'notifications'}>
-          <Header icon="🔔" title="Notifications" sub="@mentions · signals" />
-          <div className="cl-scroll" style={{ flex: 1, overflowY: 'auto' as const, padding: '12px 14px', display: 'flex', flexDirection: 'column' as const, gap: 8, minHeight: 0 }}>
-            {!myWallet ? <Empty icon="🔔" msg="Connect wallet" hint="to see your notifications" />
-              : notifLoad ? <Empty icon="🔔" msg="Loading..." />
-              : notifications.length === 0 ? <Empty icon="🔔" msg="No notifications yet" hint="You'll see @mentions here" />
-              : notifications.map(n => (
-                  <div key={n.id} className="cl-fadein cl-dm-row" style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 14px', background: n.read ? '#16161a' : 'rgba(29,158,117,0.05)', border: `0.5px solid ${n.read ? 'rgba(255,255,255,0.06)' : 'rgba(29,158,117,0.2)'}`, borderRadius: 12 }} onClick={() => navigate('/')}>
-                    <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, marginTop: 5, background: n.read ? 'transparent' : '#1D9E75' }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, marginBottom: 5, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' as const, fontFamily: 'Inter, sans-serif' }}>
-                        <span style={{ color: '#1D9E75', fontWeight: 600 }}>@{n.sender_name}</span>
-                        <span style={{ color: '#64748b' }}>mentioned you</span>
-                        <span style={{ color: '#475569', marginLeft: 'auto', fontSize: 11 }}>{timeAgo(n.created_at)}</span>
-                      </div>
-                      <div style={{ fontSize: 13, color: T.bodyDim, lineHeight: 1.55, wordBreak: 'break-word' as const, fontFamily: 'Inter, sans-serif' }}>{n.message_preview}</div>
-                    </div>
+          <Header icon="□" title="Direct Messages" sub="private threads" />
+          <div className="cl-scroll" style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {!myWallet ? <Empty icon="□" msg="Connect wallet" hint="to access your messages" /> : dmThreads.length === 0 ? <Empty icon="□" msg="No threads yet" hint="Open a profile to start a DM." /> : dmThreads.map(t => {
+              const other = otherW(t);
+              const name = dmNames[t.id] ?? shortW(other);
+              return (
+                <div key={t.id} className="cl-dm-row" onClick={() => navigate(`/dm?dm=${other}`)} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 12px', background: T.panel2, border: `1px solid ${T.line}`, borderRadius: 8 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(29,158,117,.10)', border: '1px solid rgba(29,158,117,.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.green, fontSize: 12, fontWeight: 850 }}>{name.slice(0, 2).toUpperCase()}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 750 }}>{name}</div>
+                    <div style={{ fontSize: 11, color: T.faint }}>{shortW(other)}</div>
                   </div>
-                ))}
+                </div>
+              );
+            })}
           </div>
         </PanelWrap>
 
-      </div>
+        <PanelWrap show={panel === 'notifications'}>
+          <Header icon="●" title="Notifications" sub="mentions · replies" />
+          <div className="cl-scroll" style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {!myWallet ? <Empty icon="●" msg="Connect wallet" hint="to see notifications" /> : notifLoad ? <Empty icon="●" msg="Loading..." /> : notifications.length === 0 ? <Empty icon="●" msg="No notifications yet" /> : notifications.map(n => (
+              <div key={n.id} className="cl-dm-row" onClick={() => goPanel('chat')} style={{ display: 'flex', gap: 10, padding: '11px 12px', background: n.read ? T.panel2 : 'rgba(29,158,117,.08)', border: `1px solid ${n.read ? T.line : 'rgba(29,158,117,.22)'}`, borderRadius: 8 }}>
+                <div style={{ width: 7, height: 7, borderRadius: 99, background: n.read ? 'transparent' : T.green, marginTop: 6 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: T.dim, marginBottom: 4 }}><b style={{ color: T.green }}>@{n.sender_name}</b> {n.type === 'reply' ? 'replied to you' : 'mentioned you'} <span style={{ color: T.faint }}>· {timeAgo(n.created_at)}</span></div>
+                  <div style={{ fontSize: 13, color: '#c8d3df', lineHeight: 1.45 }}>{n.message_preview}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </PanelWrap>
+      </main>
 
+      {isMobile && <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 58, zIndex: 20, background: '#0c0d10', borderTop: `1px solid ${T.line}`, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>{navItems.map(it => <button key={it.id} onClick={() => goPanel(it.id)} style={{ border: 0, background: 'transparent', color: panel === it.id ? T.green : T.dim, fontSize: 11 }}>{it.label}</button>)}</nav>}
       {activeMint && <SwapDrawer mint={activeMint} onClose={() => setActiveMint(null)} />}
     </div>
   );
 }
-
-const badgeSt: React.CSSProperties = {
-  background: 'rgba(29,158,117,0.1)', color: '#1D9E75',
-  border: '0.5px solid rgba(29,158,117,0.25)', borderRadius: 20,
-  fontSize: 10, fontWeight: 600, padding: '1px 7px', marginLeft: 'auto',
-  fontFamily: 'Inter, sans-serif',
-};

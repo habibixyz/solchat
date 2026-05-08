@@ -13,6 +13,7 @@
     "@bagsfm/bags-sdk": "^1.3.3",
     "@jup-ag/plugin": "^1.0.13",
     "@jup-ag/terminal": "^4.5.7",
+    "@keystonehq/alias-sampling": "^0.1.2",
     "@metaplex-foundation/js": "^0.20.1",
     "@metaplex-foundation/mpl-candy-machine": "^6.1.0",
     "@metaplex-foundation/umi": "^1.5.1",
@@ -27,10 +28,16 @@
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/wallet-adapter-wallets": "^0.19.37",
     "@solana/web3.js": "^1.98.4",
-    "@supabase/supabase-js": "^2.95.2",
+    "@supabase/supabase-js": "^2.104.1",
+    "assert": "^2.1.0",
+    "bs58": "^6.0.0",
     "buffer": "^6.0.3",
     "cors": "^2.8.6",
+    "crypto": "^1.0.1",
+    "crypto-browserify": "^3.12.1",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.4.1",
     "https-browserify": "^1.0.0",
     "lightweight-charts": "^5.1.0",
     "node-fetch": "^3.3.2",
@@ -43,6 +50,7 @@
     "stream-browserify": "^3.0.0",
     "stream-http": "^3.2.0",
     "three": "^0.183.2",
+    "tweetnacl": "^1.0.3",
     "url": "^0.11.4",
     "util": "^0.12.5"
   },
@@ -65,5 +73,18 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4"
-  }
+  },
+  "description": "> *Crypto does not need another social app. It needs a social layer.*",
+  "main": "eslint.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/habibixyz/solchat.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/habibixyz/solchat/issues"
+  },
+  "homepage": "https://github.com/habibixyz/solchat#readme"
 }

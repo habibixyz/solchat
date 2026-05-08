@@ -1,27 +1,26 @@
-import './index.css'
-import './styles/theme.css'
-import { Buffer } from "buffer";
-import '@solana/wallet-adapter-react-ui/styles.css';
-
-
-if (!(window as any).Buffer) {
-  (window as any).Buffer = Buffer;
-}
-
-if (!(window as any).process) {
-  (window as any).process = { env: {} };
-}
-
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+
 import "./index.css";
+import "./styles/theme.css";
+import "./styles/mobile-redesign.css";
 
 import { BrowserRouter } from "react-router-dom";
 import { WalletContext } from "./wallet/WalletContext";
 
+import { Buffer } from "buffer";
 import "@solana/wallet-adapter-react-ui/styles.css";
-import './styles/mobile-redesign.css';
+
+if (typeof window !== "undefined") {
+  (window as any).Buffer = Buffer;
+  (window as any).process = { env: {} };
+}
+
+// ✅ Fix process (some libs expect it)
+if (typeof window !== "undefined" && !(window as any).process) {
+  (window as any).process = { env: {} };
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

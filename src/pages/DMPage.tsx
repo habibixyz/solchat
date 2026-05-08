@@ -118,7 +118,7 @@ export function DMPage() {
     if (!wallets.length) return;
     setProfilesLoading(true);
     const { data } = await supabase
-      .from('usernames')
+      .from('user_ids')
       .select('wallet_address, username')
       .in('wallet_address', wallets);
     const map: Record<string, string> = {};
@@ -474,7 +474,7 @@ export function DMPage() {
                                   {displayName(parentMsg.sender)}
                                 </span>
                                 <span style={{ fontSize: 11, color: 'rgba(200,216,236,0.45)', fontFamily: C.mono, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, maxWidth: 180 }}>
-                                  {parentMsg.text}
+                                  {parentMsg.text || ''}
                                 </span>
                               </div>
                             </div>
@@ -486,7 +486,7 @@ export function DMPage() {
                             // Long-press / right-click to reply
                             onContextMenu={(e) => { e.preventDefault(); setReplyTo(m); inputRef.current?.focus(); }}
                           >
-                            {m.text}
+                            {m.text || ''}
                           </div>
 
                           {/* ── Reply button — shows on hover below the bubble ── */}
@@ -556,7 +556,7 @@ export function DMPage() {
                         {displayName(replyTo.sender)}
                       </span>
                       <span style={{ fontSize: 11, color: 'rgba(200,216,236,0.4)', fontFamily: C.mono, marginLeft: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                        {replyTo.text.length > 60 ? replyTo.text.slice(0, 60) + '…' : replyTo.text}
+                        {(replyTo.text || '').length > 60 ? (replyTo.text || '').slice(0, 60) + '…' : (replyTo.text || '')}
                       </span>
                     </div>
                     {/* Close / cancel reply */}

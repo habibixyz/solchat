@@ -12,14 +12,16 @@ import {
   SolflareWalletAdapter
 } from "@solana/wallet-adapter-wallets";
 
-const endpoint = import.meta.env.VITE_SOLANA_RPC_URL;
+import React, { ReactNode, useMemo } from "react";
 
-export function WalletContext({ children }: any) {
+const endpoint = import.meta.env.VITE_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
 
-  const wallets = [
+export const WalletContext = ({ children }: { children: ReactNode }) => {
+
+  const wallets = useMemo(() => [
     new PhantomWalletAdapter(),
     new SolflareWalletAdapter()
-  ];
+  ], []);
 
   return (
     <ConnectionProvider endpoint={endpoint}>
@@ -30,4 +32,4 @@ export function WalletContext({ children }: any) {
       </WalletProvider>
     </ConnectionProvider>
   );
-}
+};

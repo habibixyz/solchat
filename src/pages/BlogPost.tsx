@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 interface Section {
   type: "h2" | "p" | "quote" | "callout" | "divider";
-  text?: string;
+  content?: string;
   label?: string;
 }
 

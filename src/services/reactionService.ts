@@ -1,20 +1,4 @@
-// src/services/reactionService.ts
-import {
-  Connection,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  LAMPORTS_PER_SOL,
-} from '@solana/web3.js';
 import { supabase } from '../lib/supabase';
-
-const RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL;
-
-const CREATOR_WALLET =
-import.meta.env.VITE_CREATOR_WALLET ||
-'A3vfDdCu4y5EaVxKqnHmEKjwa2SaMhCZm9wbUQZrA8CV';
-
-const REACTION_FEE = Math.floor(0.0001 * LAMPORTS_PER_SOL);
 
 export type ReactionType = 'signal';
 
@@ -26,70 +10,29 @@ export type ReactionCounts = {
 export async function sendReaction(
   messageId: string,
   reactorWallet: string,
-  type: ReactionType,
-  sendTransaction: (tx: Transaction, connection: Connection) => Promise<string>
+  type: ReactionType = 'signal'
 ): Promise<void> {
-  if (!RPC_URL) throw new Error('RPC URL not configured');
-  
-  const connection = new Connection(RPC_URL, 'confirmed');
+  if (!messageId) throw new Error('Missing message');
+  if (!reactorWallet) throw new Error('Connect wallet first');
 
-  // Validate connection before building tx
-  try {
-    await connection.getLatestBlockhash();
-  } catch {
-    throw new Error('Cannot connect to Solana. Check your RPC URL.');
-  }
+  const { data: existing, error: lookupError } = await supabase
+    .from('message_reactions')
+    .select('id')
+    .eq('message_id', messageId)
+    .eq('reactor', reactorWallet)
+    .eq('reaction_type', type)
+    .maybeSingle();
 
-  // ✅ VALIDATE BEFORE USING
-if (!reactorWallet || typeof reactorWallet !== 'string') {
-  throw new Error('Invalid wallet (empty)');
-}
-
-if (!CREATOR_WALLET) {
-  throw new Error('Creator wallet not set');
-}
-
-let fromPubkey: PublicKey;
-let toPubkey: PublicKey;
-
-try {
-  fromPubkey = new PublicKey(reactorWallet);
-  toPubkey = new PublicKey(CREATOR_WALLET);
-} catch {
-  throw new Error('Invalid wallet format');
-}
-
-const tx = new Transaction().add(
-  SystemProgram.transfer({
-    fromPubkey,
-    toPubkey,
-    lamports: REACTION_FEE,
-  })
-);
-
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-  tx.recentBlockhash = blockhash;
-  tx.feePayer = fromPubkey;
-
-  let signature: string;
-  try {
-    signature = await sendTransaction(tx, connection);
-  } catch (e: any) {
-    // User rejected or wallet not ready
-    if (e?.message?.includes('_bn') || e?.message?.includes('User rejected')) {
-      throw new Error('Transaction cancelled or wallet not ready');
-    }
-    throw e;
-  }
-
-  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+  if (lookupError) throw lookupError;
+  if (existing) return;
 
   const { error } = await supabase.from('message_reactions').insert({
     message_id: messageId,
     reactor: reactorWallet,
     reaction_type: type,
-    tx_signature: signature,
+    tx_signature: `free:${reactorWallet}:${Date.now()}`,
   });
+
   if (error) throw error;
 }
 
@@ -99,10 +42,12 @@ export async function fetchReactions(
 ): Promise<Record<string, ReactionCounts>> {
   if (!messageIds.length) return {};
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('message_reactions')
     .select('message_id, reaction_type, reactor')
     .in('message_id', messageIds);
+
+  if (error) throw error;
 
   const result: Record<string, ReactionCounts> = {};
   messageIds.forEach(id => {
@@ -111,9 +56,7 @@ export async function fetchReactions(
 
   (data ?? []).forEach((r: any) => {
     if (!result[r.message_id]) return;
-    if (r.reaction_type === 'signal') {
-      result[r.message_id].signal++;
-    }
+    if (r.reaction_type === 'signal') result[r.message_id].signal += 1;
     if (myWallet && r.reactor === myWallet) {
       result[r.message_id].myReactions.add(r.reaction_type as ReactionType);
     }
@@ -122,15 +65,16 @@ export async function fetchReactions(
   return result;
 }
 
-export async function fetchTrending(limit = 10) {
+export async function fetchTrending(limit = 15) {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: reactionRows } = await supabase
+  const { data: reactionRows, error: reactionError } = await supabase
     .from('message_reactions')
     .select('message_id')
     .eq('reaction_type', 'signal')
     .gte('created_at', since);
 
+  if (reactionError) throw reactionError;
   if (!reactionRows?.length) return [];
 
   const counts: Record<string, number> = {};
@@ -145,12 +89,14 @@ export async function fetchTrending(limit = 10) {
 
   if (!topIds.length) return [];
 
-  const { data: messages } = await supabase
+  const { data: messages, error: messageError } = await supabase
     .from('messages')
     .select('*')
     .in('id', topIds);
 
+  if (messageError) throw messageError;
+
   return (messages ?? [])
-    .map(m => ({ ...m, reactionCount: counts[m.id] ?? 0 }))
-    .sort((a, b) => b.reactionCount - a.reactionCount);
+    .map((m: any) => ({ ...m, reactionCount: counts[m.id] ?? 0 }))
+    .sort((a: any, b: any) => b.reactionCount - a.reactionCount);
 }

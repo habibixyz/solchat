@@ -35,7 +35,7 @@ const POSTS = [
     tag: "ESSAY",
     readTime: "6 min read",
     excerpt:
-      "In crypto, your wallet is your identity. But right now that identity is anonymous, context-free, and easily gamed. A trust layer changes everything.",
+      "In crypto, your wallet is your identity. But right now that identity is anonymous, concontent-free, and easily gamed. A trust layer changes everything.",
   },
 ];
 

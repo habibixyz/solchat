@@ -1,5 +1,5 @@
 // src/utils/avatarCache.ts
-// Lightweight in-memory cache for avatar URLs (wallet + username)
+// Lightweight in-memory cache for avatar URLs (wallet + user_id)
 
 import { supabase } from '../lib/supabase';
 
