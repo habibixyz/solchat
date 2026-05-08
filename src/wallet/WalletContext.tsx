@@ -12,7 +12,8 @@ import {
   SolflareWalletAdapter
 } from "@solana/wallet-adapter-wallets";
 
-import React, { ReactNode, useMemo } from "react";
+import { useMemo } from "react";
+import type { ReactNode } from "react";
 
 const endpoint = import.meta.env.VITE_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
 

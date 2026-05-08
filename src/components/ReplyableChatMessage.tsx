@@ -6,8 +6,8 @@ import { useState } from 'react';
 
 export interface MessageWithReply {
   id: string;
-  user_id: string;
-  content: string;
+  username: string;
+  text: string;
   created_at: string;
   reply_to_id?: string;
   reply_preview?: { username: string; text: string } | null;
@@ -47,7 +47,7 @@ export function ReplyableChatMessage({ message, onReply }: Props) {
         </div>
       )}
 
-      {/* Main message row — keep your existing rendering here */}
+      {/* Main message row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
         <span style={{ color: '#4fc3f7', fontSize: '13px', minWidth: 'fit-content' }}>
           {message.username}
@@ -129,5 +129,3 @@ export function ReplyBar({
     </div>
   );
 }
-
-

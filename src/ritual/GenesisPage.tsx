@@ -49,7 +49,7 @@ export default function GenesisPage() {
 
         <div style={{ padding: "32px 32px 28px" }}>
 
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "4px", color: "#00f7ff", opacity: 0.6, contentTransform: "uppercase", marginBottom: "14px" }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "4px", color: "#00f7ff", opacity: 0.6, textTransform: "uppercase" as const, marginBottom: "14px" }}>
             Solchat · Origin Collection
           </div>
 

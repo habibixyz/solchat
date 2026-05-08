@@ -1,7 +1,7 @@
 // ⚡ Solchat Layout Engine (safe + fast)
 
 let canvas: HTMLCanvasElement | null = null;
-let ctx: CanvasRenderingConcontent2D | null = null;
+let ctx: CanvasRenderingContext2D | null = null;
 
 function getCtx() {
   if (!canvas) {

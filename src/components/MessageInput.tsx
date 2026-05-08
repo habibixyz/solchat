@@ -7,7 +7,7 @@ export default function MessageInput({
 }: {
   currentUser: string;
 }) {
-  const [content, setText] = useState("");
+  const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
 
   const { connection } = useConnection();
@@ -23,7 +23,6 @@ export default function MessageInput({
 
     try {
       setLoading(true);
-      // ✅ Pass text into sendPaidMessage — it handles saving + AI trigger
       await sendPaidMessage(wallet, connection, text.trim());
       setText(""); // clear only on success
     } catch (err) {
@@ -33,6 +32,9 @@ export default function MessageInput({
       setLoading(false);
     }
   };
+
+  // suppress unused var warning — currentUser may be used for display later
+  void currentUser;
 
   return (
     <div style={{ display: "flex", gap: 8 }}>

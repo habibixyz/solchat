@@ -2,10 +2,11 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 
+// Match the actual DB columns used in the select query
 type Message = {
   id: string;
-  user_id: string;
-  content: string;
+  username: string;
+  text: string;
 };
 
 // Shorten wallet addresses for display
@@ -20,7 +21,7 @@ function formatUsername(username: string) {
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-  const navigate = useNavigate(); // ← ADDED
+  const navigate = useNavigate();
 
   // Initial load
   useEffect(() => {
@@ -31,7 +32,7 @@ export default function ChatWindow() {
         .order("created_at", { ascending: true });
 
       if (!error && data) {
-        setMessages(data);
+        setMessages(data as Message[]);
         requestAnimationFrame(() =>
           bottomRef.current?.scrollIntoView({ behavior: "auto" })
         );
@@ -98,7 +99,6 @@ export default function ChatWindow() {
                 marginBottom: 2,
               }}
             >
-              {/* ── CHANGED: AI username stays plain, others are clickable ── */}
               {isAI ? (
                 formatUsername(m.username)
               ) : (
@@ -130,4 +130,3 @@ export default function ChatWindow() {
     </div>
   );
 }
-

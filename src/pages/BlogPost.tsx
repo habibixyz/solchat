@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 interface Section {
   type: "h2" | "p" | "quote" | "callout" | "divider";
+  text?: string;
   content?: string;
   label?: string;
 }
@@ -324,7 +325,7 @@ function renderSection(section: Section, i: number) {
           color: "#dde6f0", margin: "48px 0 16px", lineHeight: 1.3,
           letterSpacing: -0.3,
         }}>
-          {section.text}
+          {section.text ?? section.content ?? ''}
         </h2>
       );
     case "p":
@@ -333,7 +334,7 @@ function renderSection(section: Section, i: number) {
           fontSize: 16, color: "#8899aa", lineHeight: 1.85,
           margin: "0 0 20px",
         }}>
-          {section.text}
+          {section.text ?? section.content ?? ''}
         </p>
       );
     case "quote":
@@ -349,7 +350,7 @@ function renderSection(section: Section, i: number) {
             fontSize: 18, color: "#dde6f0", fontStyle: "italic",
             lineHeight: 1.6, margin: 0, fontWeight: 500,
           }}>
-            "{section.text}"
+            "{section.text ?? section.content ?? ''}"
           </p>
         </blockquote>
       );
@@ -372,7 +373,7 @@ function renderSection(section: Section, i: number) {
           <p style={{
             fontSize: 15, color: "#dde6f0", lineHeight: 1.7, margin: 0,
           }}>
-            {section.text}
+            {section.text ?? section.content ?? ''}
           </p>
         </div>
       );
