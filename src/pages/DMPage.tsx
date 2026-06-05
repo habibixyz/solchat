@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import { supabase } from '../lib/supabase';
+import '../styles/premium-chat.css';
 import {
   getMyThreads,
   getThread,
@@ -38,25 +40,25 @@ const fmtDate = (d: string) => {
 };
 
 const globalCSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
   .dm-root * { box-sizing: border-box; }
 
   .dm-messages::-webkit-scrollbar { width: 4px; }
   .dm-messages::-webkit-scrollbar-track { background: transparent; }
-  .dm-messages::-webkit-scrollbar-thumb { background: rgba(0,247,255,0.15); border-radius: 4px; }
+  .dm-messages::-webkit-scrollbar-thumb { background: rgba(29,158,117,0.15); border-radius: 4px; }
 
   .dm-sidebar::-webkit-scrollbar { width: 3px; }
   .dm-sidebar::-webkit-scrollbar-track { background: transparent; }
-  .dm-sidebar::-webkit-scrollbar-thumb { background: rgba(0,247,255,0.1); border-radius: 3px; }
+  .dm-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 3px; }
 
   .dm-thread-row { transition: background 0.15s, border-color 0.15s; }
-  .dm-thread-row:hover { background: rgba(0,247,255,0.04) !important; }
+  .dm-thread-row:hover { background: rgba(29,158,117,0.04) !important; }
 
   .dm-send-btn { transition: all 0.15s; }
   .dm-send-btn:not(:disabled):hover {
-    background: rgba(0,247,255,0.25) !important;
-    box-shadow: 0 0 20px rgba(0,247,255,0.4) !important;
+    background: rgba(29,158,117,0.25) !important;
+    box-shadow: 0 0 20px rgba(29,158,117,0.4) !important;
     transform: scale(1.05);
   }
 
@@ -72,25 +74,59 @@ const globalCSS = `
   }
 
   .dm-input-field:focus { outline: none; }
-  .dm-input-field::placeholder { color: rgba(200,210,230,0.25); }
-  .dm-search-input::placeholder { color: rgba(200,210,230,0.25); }
+  .dm-input-field::placeholder { color: rgba(255,255,255,0.2); }
+  .dm-search-input::placeholder { color: rgba(255,255,255,0.2); }
   .dm-search-input:focus { outline: none; }
 
   .dm-open-btn { transition: all 0.2s; }
   .dm-open-btn:not(:disabled):hover {
-    background: rgba(0,247,255,0.2) !important;
-    box-shadow: 0 0 30px rgba(0,247,255,0.3), inset 0 0 20px rgba(0,247,255,0.05) !important;
+    background: rgba(29,158,117,0.2) !important;
+    box-shadow: 0 0 30px rgba(29,158,117,0.3), inset 0 0 20px rgba(29,158,117,0.05) !important;
     transform: translateY(-1px);
   }
 
   .dm-icon-btn { transition: background 0.15s, color 0.15s; }
-  .dm-icon-btn:hover { background: rgba(0,247,255,0.08) !important; color: #00f7ff !important; }
+  .dm-icon-btn:hover { background: rgba(29,158,117,0.08) !important; color: #1D9E75 !important; }
 `;
 
 export function DMPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { publicKey, sendTransaction } = useWallet();
   const [profilesLoading, setProfilesLoading] = useState(true);
   const myWallet = publicKey?.toBase58() ?? '';
+  const [profileName, setProfileName] = useState('guest');
+  const [nameClaiming, setNameClaiming] = useState(false);
+
+  const changeName = async () => {
+    const newName = prompt('Enter new username:');
+    if (!newName) return;
+    const clean = newName.trim();
+    if (!clean) return;
+    if (clean.length < 3 || clean.length > 15) {
+      alert('Username must be 3-15 characters');
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(clean)) {
+      alert('Username can only contain letters, numbers, and underscores');
+      return;
+    }
+    setNameClaiming(true);
+    try {
+      const { error } = await supabase.from('usernames').upsert({
+        wallet_address: myWallet,
+        username: clean
+      });
+      if (error) throw error;
+      setProfileName(clean);
+      localStorage.setItem('solchat_name', clean);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to claim username (might be taken)');
+    } finally {
+      setNameClaiming(false);
+    }
+  };
   const [profileMap, setProfileMap] = useState<Record<string, any>>({});
   const [threads, setThreads] = useState<DMThread[]>([]);
   const [activeThread, setActiveThread] = useState<DMThread | null>(null);
@@ -136,6 +172,21 @@ export function DMPage() {
       });
     };
     saveProfile();
+  }, [myWallet]);
+  useEffect(() => {
+    if (!myWallet) {
+      setProfileName('guest');
+      return;
+    }
+    supabase
+      .from('usernames')
+      .select('wallet_address, username')
+      .ilike('wallet_address', myWallet)
+      .maybeSingle()
+      .then(({ data }) => {
+        const name = data?.username || localStorage.getItem('solchat_name') || 'guest';
+        setProfileName(name);
+      });
   }, [myWallet]);
 
   useEffect(() => {
@@ -279,15 +330,126 @@ export function DMPage() {
   const displayName = (wallet: string) =>
     profiles[wallet.toLowerCase()] ?? short(wallet);
 
-  if (!myWallet) return (
-    <div className="dm-root" style={{ height: 'calc(100vh - 58px)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, background: 'radial-gradient(ellipse at 50% 0%, rgba(0,247,255,0.06), transparent 60%), #08111a' }}>
-      <div style={{ width: 56, height: 56, borderRadius: 14, background: 'rgba(0,247,255,0.08)', border: '1px solid rgba(0,247,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🔒</div>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: 'rgba(0,247,255,0.4)', letterSpacing: 3 }}>CONNECT WALLET TO ACCESS DMs</div>
-    </div>
-  );
+  const rootStyle: React.CSSProperties = {
+    display: 'flex',
+    justifyContent: 'center',
+    width: '100%',
+    height: 'calc(100vh - 52px)',
+    maxHeight: 'calc(100vh - 52px)',
+    background: '#020203',
+    color: '#ffffff',
+    overflow: 'hidden',
+  };
+
+  const wrapperStyle: React.CSSProperties = {
+    display: 'flex',
+    width: '100%',
+    maxWidth: isMobile ? '100%' : '1144px',
+    height: '100%',
+    overflow: 'hidden',
+    position: 'relative',
+    borderLeft: isMobile ? 'none' : '1px solid rgba(255, 255, 255, 0.055)',
+    borderRight: isMobile ? 'none' : '1px solid rgba(255, 255, 255, 0.055)',
+  };
+
+  const navItems = [
+    { id: 'chat', label: 'Global Feed', icon: '△', path: '/' },
+    { id: 'trending', label: 'Trending', icon: '◇', path: '/trending' },
+    { id: 'dms', label: 'Messages', icon: '□', path: '/dm' },
+    { id: 'notifications', label: 'Notifications', icon: '●', path: '/notifications' },
+  ];
+
+  const renderNavSidebar = () => {
+    if (isMobile) return null;
+    return (
+      <aside className="cl-sidebar" style={{ width: 264, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: '1px solid rgba(255, 255, 255, 0.055)', background: '#050507' }}>
+        <div className="cl-sidebar-logo-container">
+          <img src="/logo.png" alt="" className="cl-logo-badge" style={{ objectFit: 'contain', padding: '2px' }} />
+          <div>
+            <div className="cl-logo-text">SOLCHAT</div>
+            <div className="cl-logo-subtext">social trading layer</div>
+          </div>
+        </div>
+        <div style={{ padding: '8px 0', borderBottom: '1px solid rgba(255, 255, 255, 0.055)' }}>
+          <div className="cl-nav-section-header">Navigate</div>
+          {navItems.map(it => {
+            const active = it.id === 'dms' 
+              ? location.pathname.startsWith('/dm') 
+              : location.pathname === it.path;
+            return (
+              <div key={it.id} className={`cl-nav-link-custom${active ? ' active' : ''}`} onClick={() => navigate(it.path)}>
+                <span className="cl-nav-icon">{it.icon}</span>
+                <span>{it.label}</span>
+              </div>
+            );
+          })}
+          <div className={`cl-nav-link-custom${location.pathname === '/mine' ? ' active' : ''}`} onClick={() => navigate('/mine')}>
+            <span className="cl-nav-icon">⛏️</span>
+            <span>Mine App</span>
+          </div>
+          <div className={`cl-nav-link-custom${location.pathname === '/discover' ? ' active' : ''}`} onClick={() => navigate('/discover')}>
+            <span className="cl-nav-icon">○</span>
+            <span>Discover</span>
+          </div>
+          {myWallet && profileName !== 'guest' && (
+            <div className={`cl-nav-link-custom${location.pathname.startsWith('/profile') ? ' active' : ''}`} onClick={() => navigate(`/profile/${encodeURIComponent(profileName)}`)}>
+              <span className="cl-nav-icon">◉</span>
+              <span>My Profile</span>
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 1 }} />
+        <div className="cl-sidebar-footer">
+          <div className="cl-avatar-footer">{profileName === 'guest' ? '?' : profileName.slice(0, 2).toUpperCase()}</div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="cl-user-name-footer">{profileName}</div>
+            <div className="cl-user-status-footer">{myWallet ? 'connected' : 'not connected'}</div>
+          </div>
+          {myWallet && (
+            <button onClick={changeName} disabled={nameClaiming} title="Change username" className="cl-edit-btn">Edit</button>
+          )}
+        </div>
+      </aside>
+    );
+  };
+
+  if (!myWallet) {
+    return (
+      <div className="dm-root" style={rootStyle}>
+        <div style={wrapperStyle}>
+          {renderNavSidebar()}
+          <main style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            background: '#09090b',
+            position: 'relative',
+            gap: 16,
+          }}>
+            <div style={{ width: 56, height: 56, borderRadius: 14, background: 'rgba(29, 158, 117, 0.08)', border: '1px solid rgba(29, 158, 117, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🔒</div>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 13, color: '#1D9E75', letterSpacing: 2 }}>CONNECT WALLET TO ACCESS DMs</div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="dm-root" style={S.root}>
+    <div className="dm-root" style={rootStyle}>
+      <div style={wrapperStyle}>
+        {renderNavSidebar()}
+        <div style={{
+          display: 'flex',
+          flex: 1,
+          minWidth: 0,
+          height: '100%',
+          overflow: 'hidden',
+          background: '#09090b',
+        }}>
 
       {/* ═══ SIDEBAR ═══ */}
       {(!isMobile || showSidebar) && (
@@ -608,24 +770,26 @@ export function DMPage() {
           )}
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }
 
 /* ─── Styles ─────────────────────────────────────────────────────────────── */
 const C = {
-  bg: '#08111a',
-  bgCard: 'rgba(10,18,35,0.9)',
-  border: 'rgba(0,247,255,0.1)',
-  borderMid: 'rgba(0,247,255,0.15)',
-  cyan: '#00f7ff',
-  cyanDim: 'rgba(0,247,255,0.35)',
-  text: '#c8d8ec',
-  textDim: 'rgba(200,216,236,0.35)',
-  bubbleMine: 'linear-gradient(135deg, rgba(0,200,255,0.9) 0%, rgba(0,140,220,0.95) 100%)',
-  bubbleTheirs: 'rgba(14,24,44,0.95)',
-  mono: "'Space Mono', 'Courier New', monospace",
-  sans: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  bg: '#020203',
+  bgCard: '#09090b',
+  border: 'rgba(255,255,255,0.055)',
+  borderMid: 'rgba(255,255,255,0.08)',
+  cyan: '#1D9E75',
+  cyanDim: 'rgba(29,158,117,0.5)',
+  text: '#ffffff',
+  textDim: '#cbd5e1',
+  bubbleMine: 'linear-gradient(135deg, rgba(29,158,117,0.85) 0%, rgba(20,110,80,0.95) 100%)',
+  bubbleTheirs: '#0f0f12',
+  mono: "Inter, sans-serif",
+  sans: 'Inter, sans-serif',
 };
 
 const S = {
@@ -641,7 +805,7 @@ const S = {
     width: 300, minWidth: 300,
     borderRight: `1px solid ${C.border}`,
     display: 'flex', flexDirection: 'column' as const,
-    background: 'rgba(8,14,26,0.95)',
+    background: '#050507',
     backdropFilter: 'blur(20px)',
     overflowY: 'auto' as const,
   },

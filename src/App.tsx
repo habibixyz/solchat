@@ -9,12 +9,10 @@ import './styles/mobile-redesign.css';
 
 import ChatLayout from "./components/ChatLayout";
 import GenesisPage from "./ritual/GenesisPage";
-import ManifestoPage from "./pages/ManifestoPage";
 import DiscoverPage from "./pages/DiscoverPage";
-import Blog from "./pages/Blog";
-import BlogPost from "./pages/BlogPost";
 import TokenPage from "./pages/TokenPage";
 import { DMPage } from './pages/DMPage';
+import MiningPage from './pages/MiningPage';
 
 export default function App() {
   const location = useLocation();
@@ -25,9 +23,10 @@ export default function App() {
 
   const isDiscover =
     location.pathname === "/discover" ||
+    location.pathname === "/manifesto" ||
     location.pathname.startsWith("/token") ||
     location.pathname.startsWith("/blog") ||
-    location.pathname.startsWith("/dm");
+    location.pathname.startsWith("/mine");
 
   const isProfile = location.pathname.startsWith("/profile");
 
@@ -59,17 +58,16 @@ export default function App() {
       <header className="sc-header">
 
         {/* Logo */}
-        <div className="sc-logo">
-          SOL<span className="sc-logo-accent">CHAT</span>
+        <div className="sc-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src="/logo.png" alt="" style={{ height: '20px', width: '20px', objectFit: 'contain', borderRadius: '4px' }} />
+          <span>SOL<span className="sc-logo-accent">CHAT</span></span>
           <span className="sc-logo-beta">BETA</span>
         </div>
 
-        {/* Desktop nav links — hidden on mobile via CSS */}
         <nav className="sc-desktop-nav">
           <NavLink to="/"          className={({ isActive }) => isActive ? "sc-nav-link active" : "sc-nav-link"}>Chat</NavLink>
-          <NavLink to="/discover"  className={({ isActive }) => isActive ? "sc-nav-link active" : "sc-nav-link"}>Discover</NavLink>
-          <NavLink to="/manifesto" className={({ isActive }) => isActive ? "sc-nav-link active" : "sc-nav-link"}>Manifesto</NavLink>
-          <NavLink to="/blog"      className={({ isActive }) => isActive ? "sc-nav-link active" : "sc-nav-link"}>Blog</NavLink>
+          <NavLink to="/mine"      className={({ isActive }) => isActive ? "sc-nav-link active" : "sc-nav-link"}>Mine ⛏️</NavLink>
+          <NavLink to="/discover"  className={({ isActive }) => (isActive || location.pathname.startsWith("/manifesto") || location.pathname.startsWith("/blog")) ? "sc-nav-link active" : "sc-nav-link"}>Discover</NavLink>
         </nav>
 
         {/* Wallet button */}
@@ -84,13 +82,14 @@ export default function App() {
         <Routes>
           <Route path="/"                    element={<ChatLayout />} />
           <Route path="/chat"                element={<Navigate to="/" />} />
-          <Route path="/manifesto"           element={<ManifestoPage />} />
+          <Route path="/manifesto"           element={<DiscoverPage />} />
           <Route path="/discover"            element={<DiscoverPage />} />
           <Route path="/token/:address"      element={<TokenPage />} />
           <Route path="/profile/:username"   element={<ProfilePage />} />
-          <Route path="/blog"                element={<Blog />} />
-          <Route path="/blog/:slug"          element={<BlogPost />} />
-          <Route path="/dm"                  element={<DMPage />} />
+          <Route path="/blog"                element={<DiscoverPage />} />
+          <Route path="/blog/:slug"          element={<DiscoverPage />} />
+          <Route path="/dm"                  element={<ChatLayout />} />
+          <Route path="/mine"                element={<MiningPage />} />
           <Route path="/trending"            element={<ChatLayout />} />
           <Route path="/notifications"       element={<ChatLayout />} />
           <Route path="/profile/me"          element={<ProfilePage />} />

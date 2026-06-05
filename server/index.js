@@ -12,6 +12,11 @@ import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { Keypair } from '@solana/web3.js';
+import mineRouter from './routes/mine.js';
+
 
 dotenv.config();
 
@@ -35,6 +40,23 @@ const supabase = createClient(
     },
   }
 );
+
+// Initialize mining server authority keypair if missing
+const envPath = path.resolve('.env');
+let envContent = '';
+if (fs.existsSync(envPath)) {
+  envContent = fs.readFileSync(envPath, 'utf8');
+}
+
+if (!process.env.MINE_SERVER_SECRET_KEY && !envContent.includes('MINE_SERVER_SECRET_KEY=')) {
+  const newKey = Keypair.generate();
+  const secretArray = Array.from(newKey.secretKey);
+  const newLine = `\nMINE_SERVER_SECRET_KEY="${JSON.stringify(secretArray)}"\n`;
+  fs.appendFileSync(envPath, newLine);
+  process.env.MINE_SERVER_SECRET_KEY = JSON.stringify(secretArray);
+  console.log(`[MINE ENGINE] Generated new server authority: ${newKey.publicKey.toBase58()}`);
+}
+
 
 const nonceStore = new Map();
 
@@ -72,6 +94,10 @@ const nonceLimiter = rateLimit({
 });
 
 app.use(generalLimiter);
+
+// Register mining routes
+app.use('/api/mine', mineRouter);
+
 
 // ============================================================================
 // HEALTH CHECK

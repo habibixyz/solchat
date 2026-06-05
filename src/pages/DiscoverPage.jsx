@@ -1,37 +1,40 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import SwapDrawer from "../components/SwapDrawer";
+import { POSTS, TAG_COLORS, TAG_TEXT } from "./BlogPost";
+import { supabase } from "../lib/supabase";
+import "../styles/premium-chat.css";
 
 const mono = "'IBM Plex Mono','Space Mono',monospace";
 const sans = "'DM Sans','Inter',sans-serif";
 
 const C = {
-  bg:       "#080c14",
-  bgPanel:  "#0b0f1d",
-  bgRow:    "#0d1120",
-  bgRowHov: "#111828",
-  bgRowSel: "#0d1d38",
-  border:   "rgba(255,255,255,0.05)",
-  borderBr: "rgba(255,255,255,0.08)",
-  cyan:     "#22d3ee",
-  cyanDim:  "rgba(34,211,238,0.1)",
-  green:    "#22c55e",
-  greenDim: "rgba(34,197,94,0.08)",
-  red:      "#ef4444",
-  redDim:   "rgba(239,68,68,0.08)",
-  yellow:   "#f59e0b",
-  text:     "#dde6f0",
-  textMid:  "#8899aa",
-  textDim:  "#3a4d62",
+  bg:       "#08090b",
+  bgPanel:  "#000000",
+  bgRow:    "transparent",
+  bgRowHov: "#0a0a0c",
+  bgRowSel: "rgba(29, 158, 117, 0.08)",
+  border:   "#16181c",
+  borderBr: "#16181c",
+  cyan:     "#1d9e75",
+  cyanDim:  "rgba(29, 158, 117, 0.12)",
+  green:    "#00ba7c",
+  greenDim: "rgba(0, 186, 124, 0.08)",
+  red:      "#f4212e",
+  redDim:   "rgba(244, 33, 46, 0.08)",
+  yellow:   "#e1b84b",
+  text:     "#e7e9ea",
+  textMid:  "#e7e9ea",
+  textDim:  "#71767b",
 };
 
 const scrollbarCSS = `
   ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: #080c14; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+  ::-webkit-scrollbar-track { background: #000000; }
+  ::-webkit-scrollbar-thumb { background: #16181c; border-radius: 2px; }
   ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
-  * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.08) #080c14; }
+  * { scrollbar-width: thin; scrollbar-color: #16181c #000000; }
 `;
 
 function fmtPrice(p) {
@@ -246,9 +249,10 @@ function AdPanel({ ads, wallet, connection, isMobileView=false }) {
     </div>
   );
 }
-
 export default function Discover() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { slug } = useParams();
   const wallet = useWallet();
   const { connection } = useConnection();
   const { w: winW } = useWindowSize();
@@ -256,7 +260,65 @@ export default function Discover() {
   const isMobile  = winW < 640;
   const isTablet  = winW >= 640 && winW < 1024;
   const isDesktop = winW >= 1024;
+  const isMobileSidebar = winW < 768;
 
+  const [profileName, setProfileName] = useState("guest");
+  const myWallet = wallet.publicKey?.toBase58() ?? "";
+  const [nameClaiming, setNameClaiming] = useState(false);
+
+  const changeName = async () => {
+    const newName = prompt('Enter new username:');
+    if (!newName) return;
+    const clean = newName.trim();
+    if (!clean) return;
+    if (clean.length < 3 || clean.length > 15) {
+      alert('Username must be 3-15 characters');
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(clean)) {
+      alert('Username can only contain letters, numbers, and underscores');
+      return;
+    }
+    setNameClaiming(true);
+    try {
+      const { error } = await supabase.from('usernames').upsert({
+        wallet_address: myWallet,
+        username: clean
+      });
+      if (error) throw error;
+      setProfileName(clean);
+      localStorage.setItem('solchat_name', clean);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to claim username (might be taken)');
+    } finally {
+      setNameClaiming(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!myWallet) {
+      setProfileName("guest");
+      return;
+    }
+    supabase
+      .from("usernames")
+      .select("wallet_address, username")
+      .ilike("wallet_address", myWallet)
+      .maybeSingle()
+      .then(({ data }) => {
+        const name = data?.username || localStorage.getItem("solchat_name") || "guest";
+        setProfileName(name);
+      });
+  }, [myWallet]);
+
+  const path = location.pathname;
+  let activeTab = "discover";
+  if (path === "/manifesto") {
+    activeTab = "manifesto";
+  } else if (path.startsWith("/blog")) {
+    activeTab = "blog";
+  }
   const [tokens,        setTokens]        = useState([]);
   const [loading,       setLoading]       = useState(false);
   const [search,        setSearch]        = useState("");
@@ -401,9 +463,6 @@ export default function Discover() {
   }, []);
 
   const selectToken = useCallback((token) => {
-    if (iframeRef.current && token.pair?.pairAddress) {
-      iframeRef.current.src = `https://dexscreener.com/solana/${token.pair.pairAddress}?embed=1&theme=dark&trades=0&info=0&chartLeftToolbar=0`;
-    }
     setSelected(token);
     loadTrades(token.pair?.pairAddress);
     if (window.innerWidth < 1024) { setMobileView("detail"); setDetailTab("chart"); }
@@ -513,12 +572,14 @@ export default function Discover() {
               {(selected?.tokenAddress||"").slice(0,4)}…{(selected?.tokenAddress||"").slice(-4)} ⧉
             </button>
             <button onClick={()=>setActiveMint(selected?.tokenAddress)}
-              style={{ padding:"7px 16px", borderRadius:6, border:`1px solid ${C.cyan}55`, background:C.cyanDim, color:C.cyan, fontFamily:mono, fontSize:12, fontWeight:700, letterSpacing:1, cursor:"pointer" }}>
+              style={{ padding:"7px 16px", borderRadius:6, border:`1px solid ${C.cyan}77`, background:C.cyanDim, color:C.cyan, fontFamily:mono, fontSize:12, fontWeight:700, letterSpacing:1, cursor:"pointer", transition:"all 0.15s" }}
+              onMouseOver={e => { e.currentTarget.style.background = C.cyan; e.currentTarget.style.color = "#000"; }}
+              onMouseOut={e => { e.currentTarget.style.background = C.cyanDim; e.currentTarget.style.color = C.cyan; }}>
               BUY ◎
             </button>
           </div>
         </div>
-        <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:10 }}>
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2, 1fr)":"repeat(5, 1fr)", gap:8, marginBottom:12 }}>
           {[
             ["PRICE",     fmtPrice(pair?.priceUsd),    C.text],
             ["5M",        `${Number(pair?.priceChange?.m5||0)>=0?"+":""}${Number(pair?.priceChange?.m5||0).toFixed(2)}%`,  Number(pair?.priceChange?.m5||0)>=0?C.green:C.red],
@@ -531,33 +592,41 @@ export default function Discover() {
             ["BUYS",      buys.toLocaleString(),        C.green],
             ["SELLS",     sells.toLocaleString(),       C.red],
           ].map(([l,v,c])=>(
-            <div key={l} style={{ background:C.bgRow, border:`1px solid ${C.border}`, borderRadius:6, padding:"6px 10px", minWidth:52 }}>
-              <div style={{ fontSize:8, color:C.textDim, fontFamily:mono, letterSpacing:2, marginBottom:2 }}>{l}</div>
-              <div style={{ fontSize:12, fontWeight:700, color:c, fontFamily:mono }}>{v}</div>
+            <div key={l} style={{ background:"rgba(255,255,255,0.01)", border:`1px solid ${C.border}`, borderRadius:8, padding:"8px 12px" }}>
+              <div style={{ fontSize:9, color:C.textDim, fontFamily:mono, letterSpacing:1.5, marginBottom:4, textTransform:"uppercase" }}>{l}</div>
+              <div style={{ fontSize:13, fontWeight:700, color:c, fontFamily:mono }}>{v}</div>
             </div>
           ))}
         </div>
         <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
           {pair?.info?.websites?.[0]?.url && (
             <a href={pair.info.websites[0].url} target="_blank" rel="noreferrer"
-              style={{ fontSize:11,color:C.textDim,fontFamily:mono,textDecoration:"none",padding:"3px 9px",border:`1px solid ${C.border}`,borderRadius:5 }}>
+              style={{ fontSize:10,fontWeight:700,color:C.textMid,fontFamily:mono,textDecoration:"none",padding:"4px 10px",border:`1px solid ${C.border}`,borderRadius:6,background:"rgba(255,255,255,0.02)",transition:"all 0.15s" }}
+              onMouseOver={e => { e.currentTarget.style.borderColor = C.cyan; e.currentTarget.style.background = C.cyanDim; e.currentTarget.style.color = C.cyan; }}
+              onMouseOut={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.color = C.textMid; }}>
               🌐 Web
             </a>
           )}
           {pair?.info?.socials?.find(s=>s.type==="twitter") && (
             <a href={pair.info.socials.find(s=>s.type==="twitter").url} target="_blank" rel="noreferrer"
-              style={{ fontSize:11,color:C.textDim,fontFamily:mono,textDecoration:"none",padding:"3px 9px",border:`1px solid ${C.border}`,borderRadius:5 }}>
+              style={{ fontSize:10,fontWeight:700,color:C.textMid,fontFamily:mono,textDecoration:"none",padding:"4px 10px",border:`1px solid ${C.border}`,borderRadius:6,background:"rgba(255,255,255,0.02)",transition:"all 0.15s" }}
+              onMouseOver={e => { e.currentTarget.style.borderColor = C.cyan; e.currentTarget.style.background = C.cyanDim; e.currentTarget.style.color = C.cyan; }}
+              onMouseOut={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.color = C.textMid; }}>
               𝕏 Twitter
             </a>
           )}
           {pair?.pairAddress && (
             <a href={`https://dexscreener.com/solana/${pair.pairAddress}`} target="_blank" rel="noreferrer"
-              style={{ fontSize:11,color:C.textDim,fontFamily:mono,textDecoration:"none",padding:"3px 9px",border:`1px solid ${C.border}`,borderRadius:5 }}>
+              style={{ fontSize:10,fontWeight:700,color:C.textMid,fontFamily:mono,textDecoration:"none",padding:"4px 10px",border:`1px solid ${C.border}`,borderRadius:6,background:"rgba(255,255,255,0.02)",transition:"all 0.15s" }}
+              onMouseOver={e => { e.currentTarget.style.borderColor = C.cyan; e.currentTarget.style.background = C.cyanDim; e.currentTarget.style.color = C.cyan; }}
+              onMouseOut={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.color = C.textMid; }}>
               DEX ↗
             </a>
           )}
           <a href={`https://solscan.io/token/${selected?.tokenAddress}`} target="_blank" rel="noreferrer"
-            style={{ fontSize:11,color:C.textDim,fontFamily:mono,textDecoration:"none",padding:"3px 9px",border:`1px solid ${C.border}`,borderRadius:5 }}>
+            style={{ fontSize:10,fontWeight:700,color:C.textMid,fontFamily:mono,textDecoration:"none",padding:"4px 10px",border:`1px solid ${C.border}`,borderRadius:6,background:"rgba(255,255,255,0.02)",transition:"all 0.15s" }}
+            onMouseOver={e => { e.currentTarget.style.borderColor = C.cyan; e.currentTarget.style.background = C.cyanDim; e.currentTarget.style.color = C.cyan; }}
+            onMouseOut={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.color = C.textMid; }}>
             SCAN ↗
           </a>
         </div>
@@ -594,7 +663,7 @@ export default function Discover() {
         onMouseOut={e=> { if(!isSel) e.currentTarget.style.background="transparent"; }}
       >
         <div style={{ width:30,fontSize:12,color:C.textDim,fontFamily:mono,flexShrink:0 }}>{idx+1}</div>
-        <div style={{ flex:1,display:"flex",alignItems:"center",gap:10,minWidth:0,paddingRight:8 }}>
+        <div style={{ flex:1,display:"flex",alignItems:"center",gap:10,minWidth:180,paddingRight:8,overflow:"hidden" }}>
           <TokenAvatar src={img} sym={sym} size={32} />
           <div style={{ minWidth:0 }}>
             <div style={{ display:"flex",alignItems:"center",gap:6 }}>
@@ -629,39 +698,71 @@ export default function Discover() {
           style={{ width:26,height:26,borderRadius:5,border:`1px solid ${C.border}`,background:"transparent",color:C.textMid,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1 }}>›</button>
       </div>
 
-      {/* Back-to-discover label on mobile/tablet when token selected */}
-      {selected && !isDesktop
-        ? <button onClick={goBack} style={{ background:"none",border:`1px solid ${C.border}`,borderRadius:5,color:C.textMid,fontFamily:mono,fontSize:10,cursor:"pointer",padding:"3px 9px",letterSpacing:1,flexShrink:0 }}>← DISCOVER</button>
-        : (!isMobile && <div style={{ fontSize:11,letterSpacing:3,color:C.cyan,fontWeight:700,fontFamily:mono,opacity:0.55,flexShrink:0 }}>SOLCHAT TERMINAL</div>)
-      }
-
-      {!isMobile && <div style={{ width:1,height:16,background:C.border,flexShrink:0 }} />}
-
-      {/* Filter buttons */}
-      <div style={{ display:"flex",gap:3,flexShrink:0 }}>
-        {["trending","gainers","volume"].map(f=>(
-          <button key={f} onClick={()=>setFilter(f)}
-            style={{ padding:isMobile?"4px 8px":"4px 11px",borderRadius:5,fontSize:isMobile?10:11,fontFamily:mono,letterSpacing:1,textTransform:"uppercase",cursor:"pointer",border:`1px solid ${filter===f?C.cyan+"55":C.border}`,background:filter===f?C.cyanDim:"transparent",color:filter===f?C.cyan:C.textDim,transition:"all 0.12s",whiteSpace:"nowrap" }}>
-            {f}
-          </button>
-        ))}
+      {/* Unified Page Tabs */}
+      <div style={{ display:"flex", gap:4, marginRight: 8, flexShrink:0 }}>
+        <button onClick={() => navigate("/discover")}
+          style={{
+            background: activeTab === "discover" ? C.cyanDim : "transparent",
+            color: activeTab === "discover" ? C.cyan : C.textMid,
+            border: `1px solid ${activeTab === "discover" ? C.cyan + "55" : "transparent"}`,
+            borderRadius: 5, padding: isMobile ? "4px 8px" : "4px 10px", fontSize: isMobile ? 9 : 11, fontFamily: mono, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4
+          }}>
+          🧭 {!isMobile && "DEX Terminal"}
+        </button>
+        <button onClick={() => navigate("/manifesto")}
+          style={{
+            background: activeTab === "manifesto" ? C.cyanDim : "transparent",
+            color: activeTab === "manifesto" ? C.cyan : C.textMid,
+            border: `1px solid ${activeTab === "manifesto" ? C.cyan + "55" : "transparent"}`,
+            borderRadius: 5, padding: isMobile ? "4px 8px" : "4px 10px", fontSize: isMobile ? 9 : 11, fontFamily: mono, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4
+          }}>
+          📜 {!isMobile && "Manifesto"}
+        </button>
+        <button onClick={() => navigate("/blog")}
+          style={{
+            background: activeTab === "blog" ? C.cyanDim : "transparent",
+            color: activeTab === "blog" ? C.cyan : C.textMid,
+            border: `1px solid ${activeTab === "blog" ? C.cyan + "55" : "transparent"}`,
+            borderRadius: 5, padding: isMobile ? "4px 8px" : "4px 10px", fontSize: isMobile ? 9 : 11, fontFamily: mono, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4
+          }}>
+          📝 {!isMobile && "Journal"}
+        </button>
       </div>
 
-      {/* Search — desktop only, pushed to right */}
-      {!isMobile && (
-        <div style={{ marginLeft:"auto",position:"relative" }}>
-          <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:C.textDim,fontSize:13 }}>⌕</span>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search token or CA..."
-            style={{ width:196,padding:"6px 10px 6px 26px",borderRadius:7,border:`1px solid ${C.border}`,background:C.bgRow,color:C.text,fontFamily:mono,fontSize:12,outline:"none" }}
-            onFocus={e=>e.target.style.borderColor=C.cyan+"44"}
-            onBlur={e=> e.target.style.borderColor=C.border}
-          />
-        </div>
-      )}
-      {!isMobile && (
-        <div style={{ fontSize:11,color:C.textDim,fontFamily:mono,flexShrink:0 }}>
-          {tokens.length} pairs · <span style={{ color:C.cyan+"77" }}>SOLANA</span>
-        </div>
+      {activeTab === "discover" && (
+        <>
+          {selected && !isDesktop
+            ? <button onClick={goBack} style={{ background:"none",border:`1px solid ${C.border}`,borderRadius:5,color:C.textMid,fontFamily:mono,fontSize:10,cursor:"pointer",padding:"3px 9px",letterSpacing:1,flexShrink:0 }}>← DISCOVER</button>
+            : (!isMobile && <div style={{ width:1,height:16,background:C.border,flexShrink:0 }} />)
+          }
+
+          {/* Filter buttons */}
+          <div style={{ display:"flex",gap:3,flexShrink:0 }}>
+            {["trending","gainers","volume"].map(f=>(
+              <button key={f} onClick={()=>setFilter(f)}
+                style={{ padding:isMobile?"4px 8px":"4px 11px",borderRadius:5,fontSize:isMobile?10:11,fontFamily:mono,letterSpacing:1,textTransform:"uppercase",cursor:"pointer",border:`1px solid ${filter===f?C.cyan+"55":C.border}`,background:filter===f?C.cyanDim:"transparent",color:filter===f?C.cyan:C.textDim,transition:"all 0.12s",whiteSpace:"nowrap" }}>
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {/* Search — desktop only, pushed to right */}
+          {!isMobile && (
+            <div style={{ marginLeft:"auto",position:"relative" }}>
+              <span style={{ position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:C.textDim,fontSize:13 }}>⌕</span>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search token or CA..."
+                style={{ width:winW<1200?130:180,padding:"6px 10px 6px 26px",borderRadius:7,border:`1px solid ${C.border}`,background:C.bgRow,color:C.text,fontFamily:mono,fontSize:12,outline:"none" }}
+                onFocus={e=>e.target.style.borderColor=C.cyan+"44"}
+                onBlur={e=> e.target.style.borderColor=C.border}
+              />
+            </div>
+          )}
+          {!isMobile && winW >= 1180 && (
+            <div style={{ fontSize:11,color:C.textDim,fontFamily:mono,flexShrink:0,marginRight:8 }}>
+              {tokens.length} pairs · <span style={{ color:C.cyan+"77" }}>SOLANA</span>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -675,19 +776,9 @@ export default function Discover() {
         <span style={{ fontSize:9,fontFamily:mono,letterSpacing:1 }}>LIST</span>
       </button>
       <button onClick={()=>{ if(selected){setMobileView("detail");setDetailTab("chart");} }}
-        style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,background:"none",border:"none",cursor:selected?"pointer":"not-allowed",borderRight:`1px solid ${C.border}`,color:mobileView==="detail"&&detailTab==="chart"?C.cyan:selected?C.textMid:C.textDim,opacity:selected?1:0.4 }}>
+        style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,background:"none",border:"none",cursor:selected?"pointer":"not-allowed",color:mobileView==="detail"&&detailTab==="chart"?C.cyan:selected?C.textMid:C.textDim,opacity:selected?1:0.4 }}>
         <span style={{ fontSize:16 }}>📈</span>
         <span style={{ fontSize:9,fontFamily:mono,letterSpacing:1 }}>CHART</span>
-      </button>
-      <button onClick={()=>{ if(selected){setMobileView("detail");setDetailTab("trades");} }}
-        style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,background:"none",border:"none",cursor:selected?"pointer":"not-allowed",borderRight:`1px solid ${C.border}`,color:mobileView==="detail"&&detailTab==="trades"?C.cyan:selected?C.textMid:C.textDim,opacity:selected?1:0.4 }}>
-        <span style={{ fontSize:16 }}>⚡</span>
-        <span style={{ fontSize:9,fontFamily:mono,letterSpacing:1 }}>TRADES</span>
-      </button>
-      <button onClick={()=>setMobileView("promote")}
-        style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,background:"none",border:"none",cursor:"pointer",color:mobileView==="promote"?C.yellow:C.textDim }}>
-        <span style={{ fontSize:16 }}>📢</span>
-        <span style={{ fontSize:9,fontFamily:mono,letterSpacing:1 }}>PROMOTE</span>
       </button>
     </div>
   );
@@ -696,7 +787,7 @@ export default function Discover() {
   const TabletTableHeader = () => (
     <div style={{ display:"flex", alignItems:"center", padding:"0 12px", height:34, background:C.bgPanel, borderBottom:`1px solid ${C.borderBr}`, flexShrink:0 }}>
       <div style={{ width:28, flexShrink:0 }} />
-      <div style={{ flex:1, fontSize:10, fontWeight:600, color:C.textDim, fontFamily:mono, letterSpacing:1, textTransform:"uppercase" }}>TOKEN</div>
+      <div style={{ flex:1, minWidth:150, fontSize:10, fontWeight:600, color:C.textDim, fontFamily:mono, letterSpacing:1, textTransform:"uppercase" }}>TOKEN</div>
       {[
         {col:"price", label:"Price",  w:"18%"},
         {col:"h1",    label:"1H",     w:"11%"},
@@ -725,7 +816,7 @@ export default function Discover() {
         onMouseOut={e=> { if(!isSel) e.currentTarget.style.background="transparent"; }}
       >
         <div style={{ width:28,fontSize:12,color:C.textDim,fontFamily:mono,flexShrink:0 }}>{idx+1}</div>
-        <div style={{ flex:1,display:"flex",alignItems:"center",gap:10,minWidth:0,paddingRight:8 }}>
+        <div style={{ flex:1,display:"flex",alignItems:"center",gap:10,minWidth:150,paddingRight:8,overflow:"hidden" }}>
           <TokenAvatar src={img} sym={sym} size={34} />
           <div style={{ minWidth:0 }}>
             <div style={{ fontSize:14,fontWeight:700,color:isSel?C.cyan:C.text,fontFamily:sans,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{sym}</div>
@@ -755,134 +846,469 @@ export default function Discover() {
     </div>
   );
 
-  // ═══════════════════════════════════════════════════════════════
-  return (
-    <div style={{ position:"fixed", top:NAVBAR_H, left:0, right:0, bottom:0, display:"flex", flexDirection:"column", background:C.bg, overflow:"hidden", fontFamily:sans }}>
-      <TopBar />
+  // ── ManifestoView ──────────────────────────────────────────────
+  const ManifestoView = () => {
+    const styles = {
+      wrap: { maxWidth: 640, margin: "0 auto", padding: "48px 24px 80px", fontFamily: "'Space Mono', monospace", color: "#8aa0b8" },
+      eyebrow: { fontSize: 10, letterSpacing: 4, color: C.cyan, textTransform: "uppercase", opacity: 0.6, marginBottom: 16 },
+      title: { fontFamily: "'Syne', sans-serif", fontSize: 36, fontWeight: 800, color: "#e2edf8", letterSpacing: -1, margin: "0 0 6px" },
+      sub: { fontSize: 12, color: "#3a5a6a", letterSpacing: 2, textTransform: "uppercase", marginBottom: 48 },
+      divider: { width: "100%", height: 1, background: "rgba(255,255,255,0.05)", margin: "40px 0" },
+      label: { fontSize: 10, letterSpacing: 3, color: C.cyan, opacity: 0.5, textTransform: "uppercase", marginBottom: 16 },
+      lead: { fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 700, color: "#c8ddf0", lineHeight: 1.4, margin: "0 0 20px" },
+      p: { fontSize: 12, lineHeight: 2, color: "#5a7a8a", margin: "0 0 12px" },
+      hi: { fontSize: 12, lineHeight: 2, color: "#8ab8cc", margin: "0 0 12px" },
+      vline: { width: 1, height: 32, background: "linear-gradient(180deg, transparent, rgba(0,247,255,0.25), transparent)", margin: "24px 0" },
+      sigilName: { fontFamily: "'Syne', sans-serif", fontSize: 24, fontWeight: 800, color: "#e2edf8", letterSpacing: -0.5, margin: "0 0 4px" },
+      closing: { fontFamily: "'Syne', sans-serif", fontSize: 15, fontWeight: 700, color: "#8ab8cc", lineHeight: 1.5, margin: "20px 0 12px" },
+      welcome: { fontSize: 11, color: C.cyan, opacity: 0.5, letterSpacing: 2, marginBottom: 28 },
+    };
 
-      {/* ── MOBILE ── */}
-      {isMobile && (
-        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minHeight:0 }}>
-          <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column", minHeight:0 }}>
+    const listItem = { fontSize: 12, color: "#5a7a8a", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", gap: 10, lineHeight: 1.7, listStyle: "none" };
 
-            {mobileView==="list" && (
-              <div style={{ flex:1, overflowY:"auto" }}>
-                {loading && <div style={{ padding:32,textAlign:"center",color:C.textDim,fontFamily:mono,fontSize:12 }}>scanning...</div>}
-                {sortedTokens.map((t,i)=><NarrowRow key={t.tokenAddress+i} token={t} />)}
-              </div>
-            )}
+    return (
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        <div style={styles.wrap}>
+          <div style={styles.eyebrow}>Manifesto · 2026</div>
+          <div style={styles.title}>SOL<span style={{ color: C.cyan, opacity: 0.8 }}>CHAT</span></div>
+          <div style={styles.sub}>A Social Layer Built For Crypto</div>
+          <div style={styles.divider} />
 
-            {mobileView==="detail" && selected && (
-              <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minHeight:0 }}>
-                <div style={{ flexShrink:0, overflowY:"auto", maxHeight:220 }}><DetailHeaderContent /></div>
-                <div style={{ display:"flex", borderBottom:`1px solid ${C.border}`, padding:"0 14px", flexShrink:0, background:C.bgPanel }}>
-                  {["chart","trades"].map(t=>(
-                    <button key={t} onClick={()=>setDetailTab(t)}
-                      style={{ padding:"8px 16px",fontFamily:mono,fontSize:11,letterSpacing:1,textTransform:"uppercase",cursor:"pointer",border:"none",borderBottom:`2px solid ${detailTab===t?C.cyan:"transparent"}`,background:"transparent",color:detailTab===t?C.cyan:C.textDim,marginBottom:-1 }}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
-                  {detailTab==="chart" ? <ChartPane /> : <TradesPanel />}
-                </div>
-              </div>
-            )}
+          <div style={styles.label}>The Problem</div>
+          <div style={styles.lead}>Our conversations live on platforms never designed for this world.</div>
+          <p style={styles.p}>Crypto moves fast. Markets react in seconds. Communities form overnight. Yet when it's time to talk, coordinate, and react — we leave the surface.</p>
+          <p style={styles.hi}>Solchat exists to close that gap.</p>
+          <div style={styles.vline} />
 
-            {mobileView==="promote" && (
-              <div style={{ flex:1, overflowY:"auto", background:C.bgPanel }}>
-                <div style={{ maxWidth:480, margin:"0 auto" }}>
-                  <AdPanel ads={ads} wallet={wallet} connection={connection} isMobileView />
-                </div>
-              </div>
-            )}
+          <div style={styles.label}>Why It Matters</div>
+          <div style={styles.lead}>The internet was not built for sovereign identity.</div>
+          <ul style={{ padding: 0, margin: "16px 0 20px" }}>
+            {["Not built for transparent liquidity", "Not built for real-time global coordination", "Not built for permissionless, trustless communication"].map((item, i) => (
+              <li key={i} style={listItem}><span style={{ color: C.cyan, opacity: 0.4, flexShrink: 0 }}>—</span>{item}</li>
+            ))}
+          </ul>
+          <p style={styles.p}>Crypto rebuilt the financial layer. Now it's time to rebuild the social one.</p>
+          <p style={styles.hi}>Culture is not an afterthought. It is infrastructure.</p>
+          <div style={styles.vline} />
+
+          <div style={styles.label}>What We're Building</div>
+          <div style={styles.lead}>Something native to crypto.</div>
+          <ul style={{ padding: 0, margin: "16px 0 20px" }}>
+            {["A shared surface for builders, traders, creators, and communities", "Conversation that moves as fast as liquidity", "Attention expressed, not extracted"].map((item, i) => (
+              <li key={i} style={listItem}><span style={{ color: C.cyan, opacity: 0.4, flexShrink: 0 }}>—</span>{item}</li>
+            ))}
+          </ul>
+          <p style={styles.p}>Not replacing existing platforms. Creating something aligned with the world we are building.</p>
+          <div style={styles.divider} />
+
+          <div style={styles.label}>Origin Signal</div>
+          <div style={styles.sigilName}>NULL <span style={{ color: C.cyan }}>SIGIL</span></div>
+          <p style={{ ...styles.p, marginTop: 12 }}>Before networks scale, they begin as signals. Null Sigil marks the first signal of Solchat's cultural layer. Not hype. Not noise. An early imprint on a new surface.</p>
+          <div style={styles.vline} />
+
+          <div style={styles.label}>Current Phase</div>
+          <div style={styles.sigilName}>POINT ACCUMULATION</div>
+          <p style={{ ...styles.p, marginTop: 12 }}>The Solchat ecosystem is currently in its pre-launch mining stage. The mainnet is not yet live, and no official token is currently active or tradable. This is the gameplay and point accumulation phase: mine chips, overclock rigs, compete on the leaderboard, and secure your early standing on the surface.</p>
+          <div style={styles.vline} />
+
+          <div style={styles.closing}>Crypto does not need another social app.<br />It needs a social layer.</div>
+          <div style={styles.welcome}>// Welcome to the surface.</div>
+          <button
+            onClick={() => navigate("/discover")}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 20px", background: "transparent", border: `1px solid ${C.cyan}44`, color: C.cyan, fontFamily: "'Space Mono', monospace", fontSize: 11, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer" }}
+          >
+            Enter the feed →
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ── BlogView ──────────────────────────────────────────────────
+  const BlogView = () => {
+    // If slug is defined, render the selected blog post
+    if (slug && POSTS[slug]) {
+      const post = POSTS[slug];
+      return (
+        <div style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+          <div style={{
+            position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
+            background: "radial-gradient(ellipse 80% 40% at 50% -5%, rgba(34,211,238,0.05) 0%, transparent 70%)",
+          }} />
+
+          <div style={{ position: "relative", zIndex: 1, maxWidth: 680, margin: "0 auto", padding: "48px 24px 120px", fontFamily: sans, color: "#dde6f0" }}>
+            {/* Back button */}
+            <button
+              onClick={() => navigate("/blog")}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                background: "none", border: "none", cursor: "pointer",
+                color: "#3a4d62", fontFamily: mono,
+                fontSize: 11, letterSpacing: 1, padding: 0, marginBottom: 36,
+                transition: "color 0.15s",
+              }}
+              onMouseOver={e => (e.currentTarget.style.color = C.cyan)}
+              onMouseOut={e => (e.currentTarget.style.color = "#3a4d62")}
+            >
+              ← JOURNAL
+            </button>
+
+            {/* Meta */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <span style={{
+                fontSize: 9, fontFamily: mono, fontWeight: 700,
+                letterSpacing: 2, padding: "3px 8px", borderRadius: 4,
+                background: TAG_COLORS[post.tag] || "rgba(255,255,255,0.06)",
+                color: TAG_TEXT[post.tag] || "#8899aa",
+                border: `1px solid ${TAG_TEXT[post.tag] || "#8899aa"}22`,
+              }}>
+                {post.tag}
+              </span>
+              <span style={{ fontSize: 11, color: "#3a4d62", fontFamily: mono }}>
+                {post.date} · {post.readTime}
+              </span>
+            </div>
+
+            {/* Title */}
+            <h1 style={{
+              fontSize: "clamp(24px, 4.5vw, 36px)",
+              fontWeight: 800,
+              lineHeight: 1.2,
+              color: "#fff",
+              margin: "0 0 20px",
+              letterSpacing: -1,
+            }}>
+              {post.title}
+            </h1>
+
+            {/* Intro */}
+            <p style={{
+              fontSize: 16, color: "#aab8c8", lineHeight: 1.7,
+              margin: "0 0 36px", fontWeight: 400,
+            }}>
+              {post.intro}
+            </p>
+
+            <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "0 0 8px" }} />
+
+            {/* Body Sections */}
+            <div style={{ paddingTop: 8 }}>
+              {post.sections.map((s, i) => {
+                switch (s.type) {
+                  case "h2":
+                    return (
+                      <h2 key={i} style={{ fontSize: 20, fontWeight: 700, color: "#dde6f0", margin: "36px 0 12px", lineHeight: 1.3, letterSpacing: -0.3 }}>
+                        {s.text}
+                      </h2>
+                    );
+                  case "p":
+                    return (
+                      <p key={i} style={{ fontSize: 14, color: "#8899aa", lineHeight: 1.8, margin: "0 0 16px" }}>
+                        {s.text}
+                      </p>
+                    );
+                  case "quote":
+                    return (
+                      <blockquote key={i} style={{ margin: "28px 0", padding: "16px 20px", borderLeft: `3px solid ${C.cyan}`, background: "rgba(34,211,238,0.04)", borderRadius: "0 8px 8px 0" }}>
+                        <p style={{ fontSize: 16, color: "#dde6f0", fontStyle: "italic", lineHeight: 1.6, margin: 0, fontWeight: 500 }}>
+                          "{s.text}"
+                        </p>
+                      </blockquote>
+                    );
+                  case "callout":
+                    return (
+                      <div key={i} style={{ margin: "28px 0", padding: "16px 20px", background: "rgba(34,211,238,0.05)", border: `1px solid ${C.cyan}22`, borderRadius: 10 }}>
+                        <div style={{ fontSize: 9, fontFamily: mono, letterSpacing: 2, color: C.cyan, marginBottom: 8, fontWeight: 700 }}>
+                          {s.label}
+                        </div>
+                        <p style={{ fontSize: 13, color: "#dde6f0", lineHeight: 1.6, margin: 0 }}>
+                          {s.text}
+                        </p>
+                      </div>
+                    );
+                  case "divider":
+                    return <div key={i} style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "30px 0" }} />;
+                  default:
+                    return null;
+                }
+              })}
+            </div>
           </div>
-          <MobileTabBar />
         </div>
-      )}
+      );
+    }
 
-      {/* ── TABLET ── */}
-      {isTablet && (
-        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minHeight:0 }}>
-          {selected ? (
-            <div style={{ flex:1, display:"flex", overflow:"hidden", minHeight:0 }}>
-              <div style={{ width:240, flexShrink:0, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-                <div style={{ flex:1, overflowY:"auto" }}>
-                  {sortedTokens.map((t,i)=><NarrowRow key={t.tokenAddress+i} token={t} />)}
-                </div>
+    // Render list of posts
+    return (
+      <div style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+        <div style={{
+          position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
+          background: "radial-gradient(ellipse 80% 45% at 50% -5%, rgba(34,211,238,0.04) 0%, transparent 60%)",
+        }} />
+
+        <div style={{ position: "relative", zIndex: 1, maxWidth: 680, margin: "0 auto", padding: "48px 24px 120px", fontFamily: sans }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: 16, marginBottom: 32 }}>
+            <div>
+              <div style={{ fontSize: 10, fontFamily: mono, letterSpacing: 3, color: C.cyan, textTransform: "uppercase", marginBottom: 6 }}>
+                JOURNAL
               </div>
-              <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0, minHeight:0 }}>
-                <div style={{ flexShrink:0, overflowY:"auto", maxHeight:200 }}><DetailHeaderContent /></div>
-                <div style={{ display:"flex", borderBottom:`1px solid ${C.border}`, padding:"0 14px", flexShrink:0, background:C.bgPanel }}>
-                  {["chart","trades"].map(t=>(
-                    <button key={t} onClick={()=>setDetailTab(t)}
-                      style={{ padding:"8px 16px",fontFamily:mono,fontSize:11,letterSpacing:1,textTransform:"uppercase",cursor:"pointer",border:"none",borderBottom:`2px solid ${detailTab===t?C.cyan:"transparent"}`,background:"transparent",color:detailTab===t?C.cyan:C.textDim,marginBottom:-1 }}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
-                  {detailTab==="chart" ? <ChartPane /> : <TradesPanel />}
-                </div>
-              </div>
+              <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: -0.5, margin: 0 }}>
+                Solchat Journal
+              </h1>
             </div>
-          ) : (
-            <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-              <TabletTableHeader />
-              <div style={{ flex:1, overflowY:"auto" }}>
-                {loading && <div style={{ padding:40,textAlign:"center",color:C.textDim,fontFamily:mono,fontSize:12 }}>scanning solana...</div>}
-                {sortedTokens.map((t,i)=><TabletRow key={t.tokenAddress+i} token={t} idx={i} />)}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+            {Object.values(POSTS).map((post) => (
+              <div
+                key={post.slug}
+                onClick={() => navigate(`/blog/${post.slug}`)}
+                style={{
+                  padding: 24,
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.03)",
+                  background: "rgba(255,255,255,0.01)",
+                  cursor: "pointer",
+                  transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                }}
+                onMouseOver={e => {
+                  e.currentTarget.style.borderColor = "rgba(34,211,238,0.15)";
+                  e.currentTarget.style.background = "rgba(34,211,238,0.01)";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.03)";
+                  e.currentTarget.style.background = "rgba(255,255,255,0.01)";
+                  e.currentTarget.style.transform = "none";
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <span style={{
+                    fontSize: 8, fontFamily: mono, fontWeight: 700, letterSpacing: 2,
+                    padding: "3px 8px", borderRadius: 4,
+                    background: TAG_COLORS[post.tag] || "rgba(255,255,255,0.06)",
+                    color: TAG_TEXT[post.tag] || "#8899aa",
+                    border: `1px solid ${TAG_TEXT[post.tag]}1a`
+                  }}>
+                    {post.tag}
+                  </span>
+                  <span style={{ fontSize: 11, color: "#3a4d62", fontFamily: mono }}>
+                    {post.date} · {post.readTime}
+                  </span>
+                </div>
+
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", margin: "0 0 10px", lineHeight: 1.3 }}>
+                  {post.title}
+                </h2>
+
+                <p style={{ fontSize: 13, color: "#8899aa", lineHeight: 1.6, margin: 0 }}>
+                  {post.excerpt || post.intro}
+                </p>
               </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderNavSidebar = () => {
+    if (isMobileSidebar) return null;
+    const navItems = [
+      { id: 'chat', label: 'Global Feed', icon: '△', path: '/' },
+      { id: 'trending', label: 'Trending', icon: '◇', path: '/trending' },
+      { id: 'dms', label: 'Messages', icon: '□', path: '/dm' },
+      { id: 'notifications', label: 'Notifications', icon: '●', path: '/notifications' },
+    ];
+    return (
+      <aside className="cl-sidebar" style={{ width: 264, flexShrink: 0, display: "flex", flexDirection: "column", overflow: "hidden", borderRight: "1px solid rgba(255, 255, 255, 0.055)", background: "#050507" }}>
+        <div className="cl-sidebar-logo-container">
+          <img src="/logo.png" alt="" className="cl-logo-badge" style={{ objectFit: 'contain', padding: '2px' }} />
+          <div>
+            <div className="cl-logo-text">SOLCHAT</div>
+            <div className="cl-logo-subtext">social trading layer</div>
+          </div>
+        </div>
+        <div style={{ padding: "8px 0", borderBottom: "1px solid rgba(255, 255, 255, 0.055)" }}>
+          <div className="cl-nav-section-header">Navigate</div>
+          {navItems.map(it => {
+            const active = it.id === 'dms' 
+              ? location.pathname.startsWith('/dm') 
+              : location.pathname === it.path;
+            return (
+              <div key={it.id} className={`cl-nav-link-custom${active ? " active" : ""}`} onClick={() => navigate(it.path)}>
+                <span className="cl-nav-icon">{it.icon}</span>
+                <span>{it.label}</span>
+              </div>
+            );
+          })}
+          <div className={`cl-nav-link-custom${location.pathname === '/mine' ? ' active' : ''}`} onClick={() => navigate('/mine')}>
+            <span className="cl-nav-icon">⛏️</span>
+            <span>Mine App</span>
+          </div>
+          <div className={`cl-nav-link-custom${location.pathname === '/discover' || location.pathname === '/manifesto' || location.pathname.startsWith('/blog') ? ' active' : ''}`} onClick={() => navigate('/discover')}>
+            <span className="cl-nav-icon">○</span>
+            <span>Discover</span>
+          </div>
+          {myWallet && profileName !== "guest" && (
+            <div className={`cl-nav-link-custom${location.pathname.startsWith('/profile') ? ' active' : ''}`} onClick={() => navigate(`/profile/${encodeURIComponent(profileName)}`)}>
+              <span className="cl-nav-icon">◉</span>
+              <span>My Profile</span>
             </div>
           )}
-          {selected && <MobileTabBar />}
         </div>
-      )}
+        <div style={{ flex: 1 }} />
+        <div className="cl-sidebar-footer">
+          <div className="cl-avatar-footer">{profileName === "guest" ? "?" : profileName.slice(0, 2).toUpperCase()}</div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="cl-user-name-footer">{profileName}</div>
+            <div className="cl-user-status-footer">{myWallet ? "connected" : "not connected"}</div>
+          </div>
+          {myWallet && (
+            <button onClick={changeName} disabled={nameClaiming} title="Change username" className="cl-edit-btn">Edit</button>
+          )}
+        </div>
+      </aside>
+    );
+  };
 
-      {/* ── DESKTOP ── */}
-      {isDesktop && (
-        <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
-          {selected ? (
-            <>
-              <div style={{ width:300, flexShrink:0, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-                <div style={{ flex:1, overflowY:"auto" }}>
-                  {sortedTokens.map((t,i)=><NarrowRow key={t.tokenAddress+i} token={t} />)}
-                </div>
-              </div>
-              <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0, minHeight:0 }}>
-                <div style={{ flexShrink:0 }}><DetailHeaderContent /></div>
-                <div style={{ flex:1, display:"flex", overflow:"hidden", minHeight:0 }}>
-                  <ChartPane />
-                  <TradesPanel />
-                </div>
-              </div>
-              <AdPanel ads={ads} wallet={wallet} connection={connection} />
-            </>
-          ) : (
-            <>
-              <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-                <div style={{ display:"flex", alignItems:"center", padding:"0 14px", height:32, background:C.bgPanel, borderBottom:`1px solid ${C.borderBr}`, flexShrink:0, minWidth:900 }}>
-                  <div style={{ width:30, flexShrink:0 }} />
-                  <div style={{ flex:1, fontSize:10, fontWeight:600, color:C.textDim, fontFamily:mono, letterSpacing:1, textTransform:"uppercase" }}>TOKEN</div>
-                  {COLS.map(({col,label,w,minW})=>(
-                    <div key={col} onClick={()=>handleSort(col)}
-                      style={{ width:w, minWidth:minW, textAlign:"right", fontSize:11, fontWeight:600, fontFamily:mono, letterSpacing:1, textTransform:"uppercase", color:sortCol===col?C.cyan:C.textDim, cursor:"pointer", userSelect:"none", flexShrink:0 }}>
-                      {label}{sortCol===col?(sortDir==="desc"?" ↓":" ↑"):""}
+  const rootStyle = {
+    display: "flex",
+    justifyContent: "center",
+    width: "100%",
+    height: `calc(100vh - ${NAVBAR_H}px)`,
+    maxHeight: `calc(100vh - ${NAVBAR_H}px)`,
+    background: C.bg,
+    color: C.text,
+    overflow: "hidden",
+    padding: isMobileSidebar ? "0" : "16px 0",
+  };
+
+  const wrapperStyle = {
+    display: "flex",
+    width: "100%",
+    maxWidth: isMobileSidebar ? "100%" : "1250px",
+    height: "100%",
+    overflow: "hidden",
+    position: "relative",
+    border: isMobileSidebar ? "none" : "1px solid rgba(255, 255, 255, 0.08)",
+    borderRadius: isMobileSidebar ? "0" : "16px",
+    background: "rgba(0,0,0,0.6)",
+    backdropFilter: isMobileSidebar ? "none" : "blur(20px)",
+  };
+
+  return (
+    <div style={rootStyle}>
+      <div style={wrapperStyle}>
+        {renderNavSidebar()}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", fontFamily: sans }}>
+          <TopBar />
+
+      {activeTab === "manifesto" && <ManifestoView />}
+      {activeTab === "blog" && <BlogView />}
+
+      {activeTab === "discover" && (
+        <>
+          {/* ── MOBILE ── */}
+          {isMobile && (
+            <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minHeight:0 }}>
+              <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column", minHeight:0 }}>
+
+                {mobileView==="list" && (
+                  <div style={{ flex:1, overflowY:"auto" }}>
+                    {loading && <div style={{ padding:32,textAlign:"center",color:C.textDim,fontFamily:mono,fontSize:12 }}>scanning...</div>}
+                    {sortedTokens.map((t,i)=><NarrowRow key={t.tokenAddress+i} token={t} />)}
+                  </div>
+                )}
+
+                {mobileView==="detail" && selected && (
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minHeight:0 }}>
+                    <div style={{ flexShrink:0, overflowY:"auto", maxHeight:220 }}><DetailHeaderContent /></div>
+                    <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
+                      <ChartPane />
                     </div>
-                  ))}
-                </div>
-                <div style={{ flex:1, overflowY:"auto", overflowX:"auto" }}>
-                  {loading && <div style={{ padding:40,textAlign:"center",color:C.textDim,fontFamily:mono,fontSize:12 }}>scanning solana...</div>}
-                  {sortedTokens.map((t,i)=><TokenRow key={t.tokenAddress+i} token={t} idx={i} />)}
-                </div>
+                  </div>
+                )}
               </div>
-              <AdPanel ads={ads} wallet={wallet} connection={connection} />
-            </>
+              <MobileTabBar />
+            </div>
           )}
-        </div>
+
+          {/* ── TABLET ── */}
+          {isTablet && (
+            <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minHeight:0 }}>
+              {selected ? (
+                <div style={{ flex:1, display:"flex", overflow:"hidden", minHeight:0 }}>
+                  <div style={{ width:240, flexShrink:0, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+                    <div style={{ flex:1, overflowY:"auto" }}>
+                      {sortedTokens.map((t,i)=><NarrowRow key={t.tokenAddress+i} token={t} />)}
+                    </div>
+                  </div>
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0, minHeight:0 }}>
+                    <div style={{ flexShrink:0, overflowY:"auto", maxHeight:200 }}><DetailHeaderContent /></div>
+                    <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column" }}>
+                      <ChartPane />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+                  <TabletTableHeader />
+                  <div style={{ flex:1, overflowY:"auto" }}>
+                    {loading && <div style={{ padding:40,textAlign:"center",color:C.textDim,fontFamily:mono,fontSize:12 }}>scanning solana...</div>}
+                    {sortedTokens.map((t,i)=><TabletRow key={t.tokenAddress+i} token={t} idx={i} />)}
+                  </div>
+                </div>
+              )}
+              {selected && <MobileTabBar />}
+            </div>
+          )}
+
+          {/* ── DESKTOP ── */}
+          {isDesktop && (
+            <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
+              {selected ? (
+                <>
+                  <div style={{ width:300, flexShrink:0, borderRight:`1px solid ${C.border}`, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+                    <div style={{ flex:1, overflowY:"auto" }}>
+                      {sortedTokens.map((t,i)=><NarrowRow key={t.tokenAddress+i} token={t} />)}
+                    </div>
+                  </div>
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0, minHeight:0 }}>
+                    <div style={{ flexShrink:0 }}><DetailHeaderContent /></div>
+                    <div style={{ flex:1, display:"flex", overflow:"hidden", minHeight:0 }}>
+                      <ChartPane />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+                    <div style={{ display:"flex", alignItems:"center", padding:"0 14px", height:32, background:C.bgPanel, borderBottom:`1px solid ${C.borderBr}`, flexShrink:0, minWidth:900 }}>
+                      <div style={{ width:30, flexShrink:0 }} />
+                      <div style={{ flex:1, minWidth:180, fontSize:10, fontWeight:600, color:C.textDim, fontFamily:mono, letterSpacing:1, textTransform:"uppercase" }}>TOKEN</div>
+                      {COLS.map(({col,label,w,minW})=>(
+                        <div key={col} onClick={()=>handleSort(col)}
+                          style={{ width:w, minWidth:minW, textAlign:"right", fontSize:11, fontWeight:600, fontFamily:mono, letterSpacing:1, textTransform:"uppercase", color:sortCol===col?C.cyan:C.textDim, cursor:"pointer", userSelect:"none", flexShrink:0 }}>
+                          {label}{sortCol===col?(sortDir==="desc"?" ↓":" ↑"):""}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ flex:1, overflowY:"auto", overflowX:"auto" }}>
+                      {loading && <div style={{ padding:40,textAlign:"center",color:C.textDim,fontFamily:mono,fontSize:12 }}>scanning solana...</div>}
+                      {sortedTokens.map((t,i)=><TokenRow key={t.tokenAddress+i} token={t} idx={i} />)}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {activeMint && <SwapDrawer mint={activeMint} onClose={()=>setActiveMint(null)} />}
+        </div>
+      </div>
     </div>
   );
 }

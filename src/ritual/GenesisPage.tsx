@@ -13,7 +13,7 @@ export default function GenesisPage() {
 
   const handleMint = async () => {
     if (!wallet.publicKey) { alert("Connect your wallet first"); return; }
-    try { setMinting(true); await mintNFT(wallet); setMinted(true); }
+    try { setMinting(true); await mintNFT(wallet, "Dh7jZfVpyDBSUNtH4tAJkWNUgZbGUWgppuwAFavuKUoX", "https://api.devnet.solana.com"); setMinted(true); }
     catch (err) { console.error(err); }
     finally { setMinting(false); }
   };

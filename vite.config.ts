@@ -1,7 +1,8 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-
+import { NodeGlobalsPolyfillPlugin } from "@esbuild-plugins/node-globals-polyfill";
 import { createRequire } from "module";
+import path from "path";
 
 const require = createRequire(import.meta.url);
 
@@ -10,24 +11,44 @@ export default defineConfig({
 
   resolve: {
     alias: {
-      crypto: "crypto-browserify",
-      stream: "stream-browserify",
-      buffer: "buffer",
-      process: require.resolve("process/browser"), // ✅ absolute path now
+      buffer:  path.resolve(require.resolve("buffer/"), ".."),
+      process: require.resolve("process/browser"),
+      stream:  "stream-browserify",
+      crypto:  "crypto-browserify",
+      util:    path.resolve(require.resolve("util/"), ".."),
+      http:    "stream-http",
+      https:   "https-browserify",
+      assert:  "assert",
+      url:     "url",
     },
   },
 
   optimizeDeps: {
-    force: true,
+    esbuildOptions: {
+      define: {
+        global: "globalThis",
+      },
+      plugins: [
+        NodeGlobalsPolyfillPlugin({
+          buffer: true,
+          process: true,
+        }),
+      ],
+    },
     include: [
       "buffer",
-      "process",
-      "process/browser", // ✅ add this
       "crypto-browserify",
+      "stream-browserify",
+      "util",
+      "assert",
+      "stream-http",
+      "https-browserify",
+      "url",
     ],
   },
 
   define: {
     global: "globalThis",
+    "process.env": "{}",
   },
 });

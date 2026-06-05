@@ -1,70 +1,46 @@
-import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
-import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
-import {
-  mplCandyMachine,
-  fetchCandyMachine,
-  mintV2,
-  safeFetchCandyGuard,
-} from "@metaplex-foundation/mpl-candy-machine";
-import { publicKey, generateSigner, transactionBuilder } from "@metaplex-foundation/umi";
-import { setComputeUnitLimit } from "@metaplex-foundation/mpl-toolbox";
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
 
-const CANDY_MACHINE_ID = "4XYkdFoqMdVCoGZgKCsgaRegTq25rMCoRdDJb2ZG2QPy";
-const RPC = "https://api.devnet.solana.com";
-
-export const mintNFT = async (walletAdapter: any) => {
+export const mintNFT = async (walletAdapter: any, serverWalletAddress: string, rpcUrl: string) => {
   try {
     if (!walletAdapter?.publicKey) {
       alert("Connect your wallet first");
-      return;
+      return null;
+    }
+    if (!serverWalletAddress) {
+      alert("Server wallet address is not configured");
+      return null;
     }
 
-    // Setup UMI
-    const umi = createUmi(RPC)
-      .use(walletAdapterIdentity(walletAdapter))
-      .use(mplCandyMachine())
+    const connection = new Connection(rpcUrl, "confirmed");
+    const fromPubkey = walletAdapter.publicKey;
+    const toPubkey = new PublicKey(serverWalletAddress);
 
-    const candyMachineId = publicKey(CANDY_MACHINE_ID);
+    // Create a transaction to transfer 0.001 SOL
+    const tx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey,
+        toPubkey,
+        lamports: 0.001 * LAMPORTS_PER_SOL, // 0.001 SOL (1,000,000 lamports)
+      })
+    );
 
-    // Fetch Candy Machine
-    const candyMachine = await fetchCandyMachine(umi, candyMachineId);
-    const candyGuard = await safeFetchCandyGuard(umi, candyMachine.mintAuthority);
+    // Fetch recent blockhash
+    const { blockhash } = await connection.getLatestBlockhash("confirmed");
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = fromPubkey;
 
-    console.log("Candy Machine loaded:", candyMachine.publicKey);
-    console.log("Items available:", candyMachine.data.itemsAvailable);
-    console.log("Items minted:", candyMachine.itemsRedeemed);
+    // Request user signature and send transaction
+    const signedTx = await walletAdapter.signTransaction(tx);
+    const signature = await connection.sendRawTransaction(signedTx.serialize());
 
-    // Check if sold out
-    if (candyMachine.itemsRedeemed >= candyMachine.data.itemsAvailable) {
-      alert("Sold out!");
-      return;
-    }
-
-    // Generate NFT mint signer
-    const nftMint = generateSigner(umi);
-
-    // Build and send mint transaction
-    await transactionBuilder()
-      .add(setComputeUnitLimit(umi, { units: 800_000 }))
-      .add(
-        mintV2(umi, {
-          candyMachine: candyMachine.publicKey,
-          candyGuard: candyGuard?.publicKey,
-          nftMint,
-          collectionMint: candyMachine.collectionMint,
-          collectionUpdateAuthority: candyMachine.authority,
-        })
-      )
-      .sendAndConfirm(umi, {
-        confirm: { commitment: "confirmed" },
-      });
-
-    alert("✅ Null Sigil minted successfully!");
-    console.log("NFT mint address:", nftMint.publicKey);
-    return nftMint.publicKey;
-
+    console.log("Transaction sent. Signature:", signature);
+    
+    // Wait for network confirmation
+    await connection.confirmTransaction(signature, "confirmed");
+    
+    return signature;
   } catch (err: any) {
-    console.error("Mint error:", err);
-    alert(`Mint failed: ${err.message}`);
+    console.error("Payment transaction failed:", err);
+    throw err;
   }
 };

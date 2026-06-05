@@ -1,0 +1,570 @@
+/* ═══════════════════════════════════════════════════════════
+   SOLCHAT MINING CORE — mining.css
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --mine-neon-green:  #1D9E75;
+  --mine-neon-cyan:   #00f0ff;
+  --mine-neon-pink:   #ff007f;
+  --mine-neon-orange: #ef9f27;
+  --mine-dark-bg:     #08090b;
+  --mine-panel-bg:    rgba(16, 17, 20, 0.75);
+  --mine-panel-border:rgba(255, 255, 255, 0.08);
+  --mine-glass-blur:  blur(16px);
+}
+
+/* ── PAGE WRAPPER ─────────────────────────────────────────── */
+.mine-container {
+  display: grid;
+  /* Left pane gets ~55% for the game, right pane fixed 340px */
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  padding: 16px 20px;
+  color: #e7edf4;
+  font-family: 'Inter', sans-serif;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1024px) {
+  .mine-container {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+    max-height: none;
+    height: auto;
+    padding-bottom: 90px;
+  }
+}
+
+/* ── LEFT PANE ────────────────────────────────────────────── */
+.mine-left-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+/* ── RIGHT PANE ───────────────────────────────────────────── */
+.mine-right-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .mine-right-pane {
+    overflow: visible;
+  }
+}
+
+/* ── GLASSMORPHIC CARDS ───────────────────────────────────── */
+.mine-card {
+  background: var(--mine-panel-bg);
+  backdrop-filter: var(--mine-glass-blur);
+  border: 1px solid var(--mine-panel-border);
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.mine-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(29, 158, 117, 0.4), transparent);
+}
+
+.mine-card--active::before {
+  background: linear-gradient(90deg, transparent, var(--mine-neon-cyan), transparent);
+}
+
+.mine-card--overclock::before {
+  background: linear-gradient(90deg, var(--mine-neon-pink), var(--mine-neon-cyan), var(--mine-neon-pink));
+  background-size: 200% auto;
+  animation: overclockBorder 2s linear infinite;
+}
+
+@keyframes overclockBorder {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+/* ── RIG PANEL (game canvas host) ────────────────────────── */
+.mine-rig-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 0;
+}
+
+/* ── CANVAS CONTAINER ─────────────────────────────────────── */
+/* Fills the available space — canvas grows with the panel */
+.mine-canvas-container {
+  position: relative;
+  /* Use aspect-ratio so it stays square and fills width */
+  width: min(420px, 100%);
+  aspect-ratio: 1 / 1;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  background: radial-gradient(circle at center, rgba(0, 240, 255, 0.04) 0%, transparent 65%),
+              linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+  background-size: 100% 100%, 20px 20px, 20px 20px;
+  background-position: center;
+  border-radius: 12px;
+  border: none;
+  transition: all 0.3s;
+}
+
+.mine-canvas-container:hover {
+  border: none;
+}
+
+.mine-canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  transition: transform 0.08s ease-out;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+}
+
+.mine-canvas:active {
+  transform: scale(0.97);
+}
+
+/* ── FLOATING PARTICLE TEXT ──────────────────────────────── */
+.floating-text {
+  position: absolute;
+  pointer-events: none;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--mine-neon-cyan);
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.8), 0 0 16px rgba(0, 240, 255, 0.4);
+  animation: floatUp 0.8s ease-out forwards;
+  z-index: 10;
+}
+
+.floating-text.critical {
+  font-size: 20px;
+  color: var(--mine-neon-pink);
+  text-shadow: 0 0 10px rgba(255, 0, 127, 0.8), 0 0 20px rgba(255, 0, 127, 0.4);
+}
+
+@keyframes floatUp {
+  0%   { transform: translate(-50%, -50%) scale(0.7) translateY(0);     opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.1) translateY(-80px); opacity: 0; }
+}
+
+/* ── HUD / STATS ──────────────────────────────────────────── */
+.mine-hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+
+.mine-stat-box {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;        /* allow shrink */
+  flex: 1;
+}
+
+.mine-stat-label {
+  font-size: 9px;
+  color: #7f8da1;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Balance number: fluid font that shrinks when long */
+.mine-stat-value {
+  font-size: clamp(16px, 3.5vw, 28px);   /* shrinks on smaller containers */
+  font-weight: 900;
+  color: #ffffff;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  line-height: 1.1;
+}
+
+.mine-stat-unit {
+  font-size: 11px;
+  color: var(--mine-neon-green);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── COMBO METER ─────────────────────────────────────────── */
+.mine-combo-bar {
+  width: 90%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+  position: relative;
+}
+
+.mine-combo-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--mine-neon-green), var(--mine-neon-cyan));
+  border-radius: 999px;
+  transition: width 0.1s ease-out;
+}
+
+.mine-combo-fill.overclock {
+  background: linear-gradient(90deg, var(--mine-neon-pink), var(--mine-neon-cyan), var(--mine-neon-pink));
+  background-size: 200% 100%;
+  animation: overclockBarGlow 1s linear infinite;
+}
+
+@keyframes overclockBarGlow {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+
+/* Overclock overlay text */
+.overclock-alert {
+  position: absolute;
+  top: 8px;
+  font-weight: 950;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--mine-neon-pink);
+  text-transform: uppercase;
+  animation: pulseOverclock 1s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes pulseOverclock {
+  0%   { opacity: 0.3; transform: scale(0.95); text-shadow: 0 0 5px rgba(255, 0, 127, 0.5); }
+  100% { opacity: 1;   transform: scale(1.05); text-shadow: 0 0 15px rgba(255, 0, 127, 0.9), 0 0 30px rgba(255, 0, 127, 0.5); }
+}
+
+/* ── UPGRADES LIST ───────────────────────────────────────── */
+.upgrades-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 2px;
+}
+
+.upgrade-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 7px;
+  transition: all 0.2s;
+  cursor: pointer;
+  user-select: none;
+}
+
+.upgrade-item:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(29, 158, 117, 0.25);
+}
+
+.upgrade-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.upgrade-info {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.upgrade-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.upgrade-details {
+  min-width: 0;
+}
+
+.upgrade-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upgrade-benefit {
+  font-size: 10px;
+  color: #7f8da1;
+  margin-top: 1px;
+}
+
+.upgrade-action {
+  text-align: right;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.upgrade-cost {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--mine-neon-orange);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.upgrade-level {
+  font-size: 9px;
+  color: #7f8da1;
+  margin-top: 1px;
+}
+
+/* ── TABS ────────────────────────────────────────────────── */
+.mine-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--mine-panel-border);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  overflow-x: auto;
+  scrollbar-width: none; /* Hide scrollbar for Firefox */
+}
+.mine-tabs::-webkit-scrollbar {
+  display: none; /* Hide scrollbar for Chrome, Safari and Opera */
+}
+
+.mine-tab-btn {
+  background: transparent;
+  border: none;
+  color: #7f8da1;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 5px 9px;
+  border-radius: 5px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.mine-tab-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mine-tab-btn.active {
+  color: #fff;
+  background: rgba(29, 158, 117, 0.15);
+  border: 1px solid rgba(29, 158, 117, 0.25);
+}
+
+/* ── LEADERBOARD ─────────────────────────────────────────── */
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.leaderboard-row.me {
+  background: rgba(29, 158, 117, 0.08);
+  border-color: rgba(29, 158, 117, 0.35);
+}
+
+.leaderboard-rank {
+  width: 20px;
+  font-weight: 900;
+  color: #7f8da1;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.leaderboard-rank.rank-0 { color: #ffd700; font-size: 13px; }
+.leaderboard-rank.rank-1 { color: #c0c0c0; font-size: 12px; }
+.leaderboard-rank.rank-2 { color: #cd7f32; font-size: 12px; }
+
+.leaderboard-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.leaderboard-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.leaderboard-name {
+  font-weight: 700;
+  color: #e7edf4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+}
+
+.leaderboard-score-group {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.leaderboard-chips {
+  font-weight: 800;
+  color: #fff;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.leaderboard-hps {
+  font-size: 9px;
+  color: #7f8da1;
+  margin-top: 1px;
+}
+
+/* ── SCREEN SHAKE ────────────────────────────────────────── */
+.screen-shake {
+  animation: shake 0.15s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
+  40%, 60% { transform: translate3d(3px, 0, 0); }
+}
+
+/* ── OVERCLOCK FLASH BORDER ─────────────────────────────── */
+.overclock-flash {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle, transparent 60%, rgba(255, 0, 127, 0.12) 100%);
+  border: 2px solid var(--mine-neon-pink);
+  box-shadow: inset 0 0 30px rgba(255, 0, 127, 0.3);
+  pointer-events: none;
+  z-index: 9999;
+  animation: borderPulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes borderPulse {
+  0%   { opacity: 0.5; box-shadow: inset 0 0 20px rgba(255, 0, 127, 0.2); }
+  100% { opacity: 1;   box-shadow: inset 0 0 50px rgba(255, 0, 127, 0.5); }
+}
+
+/* ── SIGIL / WEB3 BOX ────────────────────────────────────── */
+.sigil-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(239, 159, 39, 0.08);
+  border: 1px solid rgba(239, 159, 39, 0.25);
+  margin-top: 10px;
+}
+
+.sigil-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--mine-neon-orange);
+  letter-spacing: 0.5px;
+}
+
+.sigil-desc {
+  font-size: 10px;
+  color: #7f8da1;
+  margin-top: 1px;
+}
+
+.sigil-mint-btn {
+  background: var(--mine-neon-orange);
+  border: none;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sigil-mint-btn:hover {
+  opacity: 0.9;
+}
+
+/* ── GRID DEPLETED BADGE ────────────────────────────────── */
+.grid-offline-badge {
+  animation: badgeBlink 1s infinite alternate;
+}
+
+@keyframes badgeBlink {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+

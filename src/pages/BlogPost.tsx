@@ -19,7 +19,7 @@ interface Post {
   sections: Section[];
 }
 
-const POSTS: Record<string, Post> = {
+export const POSTS: Record<string, Post> = {
   "why-every-crypto-community-needs-a-social-layer": {
     slug: "why-every-crypto-community-needs-a-social-layer",
     title: "Why Every Crypto Community Needs a Social Layer",
@@ -302,13 +302,13 @@ const POSTS: Record<string, Post> = {
 };
 
 // ── Tag styles ───────────────────────────────────────────────────────────────
-const TAG_COLORS: Record<string, string> = {
+export const TAG_COLORS: Record<string, string> = {
   VISION:  "rgba(34,211,238,0.12)",
   PRODUCT: "rgba(34,197,94,0.12)",
   TECH:    "rgba(139,92,246,0.12)",
   ESSAY:   "rgba(245,158,11,0.12)",
 };
-const TAG_TEXT: Record<string, string> = {
+export const TAG_TEXT: Record<string, string> = {
   VISION:  "#22d3ee",
   PRODUCT: "#22c55e",
   TECH:    "#a78bfa",

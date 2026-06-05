@@ -61,15 +61,20 @@ export async function sendPaidMessage(
     const tx = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: wallet.publicKey,
-        toPubkey: new PublicKey("A3vfDdCu4y5EaVxKqnHmEKjwa2SaMhCZm9wbUQZrA8CV"), // 🔥 CHANGE THIS
+        toPubkey: new PublicKey(import.meta.env.VITE_SOLCHAT_WALLET || "A3vfDdCu4y5EaVxKqnHmEKjwa2SaMhCZm9wbUQZrA8CV"),
         lamports: 0.001 * LAMPORTS_PER_SOL,
       })
     );
 
     try {
+      const { blockhash } = await connection.getLatestBlockhash('confirmed');
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = wallet.publicKey;
+
       txSignature = await wallet.sendTransaction(tx, connection);
-    } catch (err) {
-      throw new Error('Transaction cancelled');
+    } catch (err: any) {
+      console.error('Paid message transaction error:', err);
+      throw new Error(err.message || 'Transaction rejected/cancelled');
     }
   }
 
