@@ -876,6 +876,12 @@ export default function MiningPage() {
 
     // Total rigs gives radius and opacity of the glow ring
     const totalRigs = rigsCount.cpu + rigsCount.gpu + rigsCount.asic + rigsCount.validator + rigsCount.quantum + rigsCount.ai;
+
+    // Dynamically adjust camera zoom/distance to keep growing rings in frame without shrinking initial voxel cluster
+    if (cameraRef.current) {
+      cameraRef.current.position.z = 4.8 + Math.min(totalRigs, 30) * 0.07;
+    }
+
     if (totalRigs === 0) {
       scene.add(group);
       return;
@@ -929,7 +935,7 @@ export default function MiningPage() {
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 25);
-    camera.position.z = 6.8;
+    camera.position.z = 4.8;
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({
