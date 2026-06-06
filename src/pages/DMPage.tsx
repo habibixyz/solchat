@@ -92,19 +92,23 @@ const globalCSS = `
 export function DMPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { publicKey, sendTransaction } = useWallet();
+  const { publicKey, sendTransaction, signMessage } = useWallet();
   const [profilesLoading, setProfilesLoading] = useState(true);
   const myWallet = publicKey?.toBase58() ?? '';
   const [profileName, setProfileName] = useState('guest');
   const [nameClaiming, setNameClaiming] = useState(false);
 
   const changeName = async () => {
+    if (!publicKey || !signMessage) {
+      alert("Connect wallet first and make sure it supports signing messages.");
+      return;
+    }
     const newName = prompt('Enter new username:');
     if (!newName) return;
     const clean = newName.trim();
     if (!clean) return;
-    if (clean.length < 3 || clean.length > 15) {
-      alert('Username must be 3-15 characters');
+    if (clean.length < 3 || clean.length > 20) {
+      alert('Username must be 3-20 characters');
       return;
     }
     if (!/^[a-zA-Z0-9_]+$/.test(clean)) {
@@ -113,16 +117,29 @@ export function DMPage() {
     }
     setNameClaiming(true);
     try {
-      const { error } = await supabase.from('usernames').upsert({
-        wallet_address: myWallet,
-        username: clean
+      const { default: bs58 } = await import('bs58');
+      const message = `Claim username "${clean}" for wallet ${myWallet}`;
+      const encodedMsg = new TextEncoder().encode(message);
+      const signatureBytes = await signMessage(encodedMsg);
+      const signature = bs58.encode(signatureBytes);
+
+      const apiURL = import.meta.env.VITE_MINING_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${apiURL}/api/auth/claim-username`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: myWallet, username: clean, signature })
       });
-      if (error) throw error;
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to claim username');
+      }
+
       setProfileName(clean);
       localStorage.setItem('solchat_name', clean);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to claim username (might be taken)');
+      alert(err.message || 'Failed to claim username (might be taken)');
     } finally {
       setNameClaiming(false);
     }

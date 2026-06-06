@@ -687,6 +687,9 @@ export default function ChatLayout() {
 
   async function changeName() {
     if (!myWallet) return alert('Connect wallet first');
+    if (!wallet.signMessage) {
+      return alert('Your wallet does not support message signing.');
+    }
     const name = prompt('Enter display name (3-20 letters, numbers, or underscores):')?.trim();
     if (!name || name.length < 3 || name.length > 20 || !/^[a-zA-Z0-9_]+$/.test(name)) {
       return alert('Use 3-20 letters, numbers, or underscores');
@@ -694,10 +697,24 @@ export default function ChatLayout() {
 
     setNameClaiming(true);
     try {
-      const { data: existing } = await supabase.from('usernames').select('wallet_address').ilike('username', name).maybeSingle();
-      if (existing && existing.wallet_address !== myWallet) return alert(`"${name}" is taken`);
-      const { error } = await supabase.from('usernames').upsert({ wallet_address: myWallet, username: name }, { onConflict: 'wallet_address' });
-      if (error) throw error;
+      const { default: bs58 } = await import('bs58');
+      const message = `Claim username "${name}" for wallet ${myWallet}`;
+      const encodedMsg = new TextEncoder().encode(message);
+      const signatureBytes = await wallet.signMessage(encodedMsg);
+      const signature = bs58.encode(signatureBytes);
+
+      const apiURL = import.meta.env.VITE_MINING_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${apiURL}/api/auth/claim-username`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: myWallet, username: name, signature })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to claim username');
+      }
+
       setProfileName(name);
       localStorage.setItem('solchat_name', name);
       usernameCache[myWallet] = name;

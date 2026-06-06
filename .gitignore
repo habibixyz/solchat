@@ -39,3 +39,4 @@ server/.env*
 *.sw?
 # Database
 server/mining_db.json
+.vercel

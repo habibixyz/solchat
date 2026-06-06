@@ -94,7 +94,7 @@ html, body {
   pointer-events: none !important;
 }
 @media (max-width: 768px) {
-  .sc-3d-canvas, canvas { display: none !important; }
+  .sc-3d-canvas { display: none !important; }
 }
 
 /* ── Header ─────────────────────────────────────────────────── */

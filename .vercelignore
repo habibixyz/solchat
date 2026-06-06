@@ -1,0 +1,13 @@
+node_modules
+server
+dist
+.git
+.vercel
+sugar.exe
+sugar.log
+cache.json
+.env
+.env.local
+temp
+*.zip
+*.tar.gz

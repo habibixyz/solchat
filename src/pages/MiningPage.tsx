@@ -314,12 +314,16 @@ export default function MiningPage() {
   const [nameClaiming, setNameClaiming] = useState(false);
 
   const changeName = async () => {
+    if (!wallet.publicKey || !wallet.signMessage) {
+      alert("Connect wallet first and make sure it supports signing messages.");
+      return;
+    }
     const newName = prompt('Enter new username:');
     if (!newName) return;
     const clean = newName.trim();
     if (!clean) return;
-    if (clean.length < 3 || clean.length > 15) {
-      alert('Username must be 3-15 characters');
+    if (clean.length < 3 || clean.length > 20) {
+      alert('Username must be 3-20 characters');
       return;
     }
     if (!/^[a-zA-Z0-9_]+$/.test(clean)) {
@@ -328,16 +332,28 @@ export default function MiningPage() {
     }
     setNameClaiming(true);
     try {
-      const { error } = await supabase.from('usernames').upsert({
-        wallet_address: myWallet,
-        username: clean
+      const { default: bs58 } = await import('bs58');
+      const message = `Claim username "${clean}" for wallet ${myWallet}`;
+      const encodedMsg = new TextEncoder().encode(message);
+      const signatureBytes = await wallet.signMessage(encodedMsg);
+      const signature = bs58.encode(signatureBytes);
+
+      const res = await fetch(`${MINING_API_URL}/api/auth/claim-username`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: myWallet, username: clean, signature })
       });
-      if (error) throw error;
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to claim username');
+      }
+
       setProfileName(clean);
       localStorage.setItem('solchat_name', clean);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to claim username (might be taken)');
+      alert(err.message || 'Failed to claim username (might be taken)');
     } finally {
       setNameClaiming(false);
     }
@@ -1476,11 +1492,32 @@ export default function MiningPage() {
 
       {/* ── LEFT CONTAINER ── */}
       <div className="mine-left-pane">
-        <div className="mine-card mine-card--active" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '12px 16px' }}>
+        <div className="mine-card mine-card--active" style={{
+          flex: isMobile ? 'none' : 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: isMobile ? 'auto' : 0,
+          padding: '12px 16px'
+        }}>
           {/* COMPACT HUD ROW */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8 }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'space-between',
+            alignItems: isMobile ? 'stretch' : 'flex-start',
+            marginBottom: 8,
+            gap: isMobile ? 12 : 8
+          }}>
             {/* Balance */}
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 0,
+              flex: isMobile ? 'none' : 1,
+              alignItems: isMobile ? 'center' : 'flex-start',
+              borderBottom: isMobile ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
+              paddingBottom: isMobile ? 8 : 0
+            }}>
               <span style={{ fontSize: 9, color: '#7f8da1', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600 }}>Mined Balance</span>
               <span style={{
                 fontWeight: 900,
@@ -1488,7 +1525,7 @@ export default function MiningPage() {
                 display: 'flex',
                 alignItems: 'baseline',
                 gap: 4,
-                fontSize: chips >= 1_000_000 ? 16 : chips >= 100_000 ? 20 : chips >= 10_000 ? 24 : 28,
+                fontSize: chips >= 1_000_000 ? 18 : chips >= 100_000 ? 22 : 26,
                 lineHeight: 1.1,
                 whiteSpace: 'nowrap',
               }}>
@@ -1497,48 +1534,58 @@ export default function MiningPage() {
               </span>
             </div>
 
-            {/* Hash Rate */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-              <span style={{ fontSize: 9, color: '#7f8da1', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600 }}>Hash Rate</span>
-              <span style={{ fontWeight: 900, color: 'var(--mine-neon-cyan)', fontSize: 22, lineHeight: 1.1, whiteSpace: 'nowrap' }}>
-                {gridPower > 0 ? (
-                  (activeHashRate * miningEfficiency) >= 1000
-                    ? `${((activeHashRate * miningEfficiency) / 1000).toFixed(1)}K`
-                    : (activeHashRate * miningEfficiency).toFixed(1)
-                ) : (
-                  '0.0'
-                )}
-                <span style={{ fontSize: 10, color: 'var(--mine-neon-cyan)', fontWeight: 700, marginLeft: 3 }}>H/s</span>
-              </span>
-            </div>
+            {/* Other Stats Group */}
+            <div style={{
+              display: 'flex',
+              justifyContent: isMobile ? 'space-around' : 'flex-start',
+              alignItems: 'center',
+              width: isMobile ? '100%' : 'auto',
+              gap: isMobile ? 16 : 8,
+              flexShrink: 0
+            }}>
+              {/* Hash Rate */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                <span style={{ fontSize: 9, color: '#7f8da1', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600 }}>Hash Rate</span>
+                <span style={{ fontWeight: 900, color: 'var(--mine-neon-cyan)', fontSize: 20, lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+                  {gridPower > 0 ? (
+                    (activeHashRate * miningEfficiency) >= 1000
+                      ? `${((activeHashRate * miningEfficiency) / 1000).toFixed(1)}K`
+                      : (activeHashRate * miningEfficiency).toFixed(1)
+                  ) : (
+                    '0.0'
+                  )}
+                  <span style={{ fontSize: 10, color: 'var(--mine-neon-cyan)', fontWeight: 700, marginLeft: 3 }}>H/s</span>
+                </span>
+              </div>
 
-            {/* Efficiency */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-              <span style={{ fontSize: 9, color: '#7f8da1', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600 }}>Efficiency</span>
-              <span style={{ fontWeight: 900, color: miningEfficiency <= 0.2 ? 'var(--mine-neon-pink)' : 'var(--mine-neon-green)', fontSize: 22, lineHeight: 1.1, whiteSpace: 'nowrap' }}>
-                {Math.ceil(miningEfficiency * 100)}
-                <span style={{ fontSize: 10, color: miningEfficiency <= 0.2 ? 'var(--mine-neon-pink)' : 'var(--mine-neon-green)', fontWeight: 700, marginLeft: 1 }}>%</span>
-              </span>
-            </div>
+              {/* Efficiency */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                <span style={{ fontSize: 9, color: '#7f8da1', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600 }}>Efficiency</span>
+                <span style={{ fontWeight: 900, color: miningEfficiency <= 0.2 ? 'var(--mine-neon-pink)' : 'var(--mine-neon-green)', fontSize: 20, lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+                  {Math.ceil(miningEfficiency * 100)}
+                  <span style={{ fontSize: 10, color: miningEfficiency <= 0.2 ? 'var(--mine-neon-pink)' : 'var(--mine-neon-green)', fontWeight: 700, marginLeft: 1 }}>%</span>
+                </span>
+              </div>
 
-            {/* Level Badge */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
-              <span style={{ fontSize: 9, color: '#7f8da1', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600 }}>Level</span>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                <span style={{
-                  fontWeight: 900,
-                  fontSize: 28,
-                  lineHeight: 1.1,
-                  color: levelTier.color,
-                  textShadow: `0 0 12px ${levelTier.glow}`,
-                }}>{level}</span>
-                <span style={{
-                  fontSize: 9,
-                  fontWeight: 800,
-                  color: levelTier.color,
-                  opacity: 0.85,
-                  letterSpacing: 0.5,
-                }}>{levelTier.label}</span>
+              {/* Level Badge */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'center' : 'flex-end', flexShrink: 0 }}>
+                <span style={{ fontSize: 9, color: '#7f8da1', letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: 600 }}>Level</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                  <span style={{
+                    fontWeight: 900,
+                    fontSize: 24,
+                    lineHeight: 1.1,
+                    color: levelTier.color,
+                    textShadow: `0 0 12px ${levelTier.glow}`,
+                  }}>{level}</span>
+                  <span style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    color: levelTier.color,
+                    opacity: 0.85,
+                    letterSpacing: 0.5,
+                  }}>{levelTier.label}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1570,7 +1617,14 @@ export default function MiningPage() {
           )}
 
           {/* INTERACTIVE MINING NODE — fills remaining space */}
-          <div className={`mine-rig-panel ${isOverclocked ? 'mine-card--overclock' : ''}`} style={{ flex: 1, minHeight: 0 }}>
+          <div className={`mine-rig-panel ${isOverclocked ? 'mine-card--overclock' : ''}`} style={{
+            flex: isMobile ? 'none' : 1,
+            minHeight: isMobile ? 'auto' : 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
             {isOverclocked && <span className="overclock-alert">Hyperdrive Overclock Active!</span>}
 
             {/* Music Toggle Button */}
@@ -1628,7 +1682,8 @@ export default function MiningPage() {
               flexDirection: 'column',
               gap: 10,
               marginTop: 12,
-              boxSizing: 'border-box'
+              boxSizing: 'border-box',
+              flexShrink: 0
             }}>
               {/* CORE POWER */}
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -1670,7 +1725,7 @@ export default function MiningPage() {
           </div>
 
           {/* BOTTOM ACTIONS */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexShrink: 0 }}>
             {wallet.publicKey && (
               <button onClick={syncScoresWithServer} disabled={isSyncing} className="sigil-mint-btn"
                 style={{ flex: 1, background: 'rgba(29,158,117,0.1)', border: '1px solid rgba(29,158,117,0.4)', color: 'var(--mine-neon-green)', fontSize: 10 }}>
@@ -1688,7 +1743,12 @@ export default function MiningPage() {
 
       {/* ── RIGHT CONTAINER: UPGRADES / LEADERBOARD TAB SYSTEM ── */}
       <div className="mine-right-pane">
-        <div className="mine-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div className="mine-card" style={{
+          flex: isMobile ? 'none' : 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: isMobile ? 'auto' : 0
+        }}>
           {/* TABS HEADER */}
           <div className="mine-tabs">
             <button
