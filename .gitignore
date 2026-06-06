@@ -40,3 +40,4 @@ server/.env*
 # Database
 server/mining_db.json
 .vercel
+.env*.local
