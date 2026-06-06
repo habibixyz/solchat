@@ -338,7 +338,7 @@ export default function MiningPage() {
       const signatureBytes = await wallet.signMessage(encodedMsg);
       const signature = bs58.encode(signatureBytes);
 
-      const res = await fetch(`${MINING_API_URL}/api/auth/claim-username`, {
+      const res = await fetch('/api/claim-username', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ walletAddress: myWallet, username: clean, signature })

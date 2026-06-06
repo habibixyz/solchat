@@ -291,8 +291,7 @@ export default function Discover() {
       const signatureBytes = await wallet.signMessage(encodedMsg);
       const signature = bs58.encode(signatureBytes);
 
-      const apiURL = import.meta.env.VITE_MINING_API_URL || 'http://localhost:3000';
-      const res = await fetch(`${apiURL}/api/auth/claim-username`, {
+      const res = await fetch('/api/claim-username', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ walletAddress: myWallet, username: clean, signature })
