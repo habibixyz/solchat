@@ -350,7 +350,7 @@ export default function MiningPage() {
       }
 
       setProfileName(clean);
-      localStorage.setItem('solchat_name', clean);
+      localStorage.setItem(`solchat_name_${myWallet}`, clean);
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Failed to claim username (might be taken)');
@@ -365,19 +365,38 @@ export default function MiningPage() {
     return () => window.removeEventListener('resize', h);
   }, []);
 
+  const prevWalletRef = useRef('');
+
   useEffect(() => {
+    const prevWallet = prevWalletRef.current;
+
     if (!myWallet) {
+      if (prevWallet) {
+        // Clear stale cached name for old wallet
+        delete (window as any).__scNameCache?.[prevWallet];
+      }
+      prevWalletRef.current = '';
       setProfileName('guest');
       return;
     }
+
+    // Wallet switched — immediately reset to prevent bleed
+    if (prevWallet && prevWallet !== myWallet) {
+      setProfileName('guest');
+    }
+
+    prevWalletRef.current = myWallet;
+    const walletKey = `solchat_name_${myWallet}`;
+
     supabase
       .from('usernames')
       .select('wallet_address, username')
       .ilike('wallet_address', myWallet)
       .maybeSingle()
       .then(({ data }) => {
-        const name = data?.username || localStorage.getItem('solchat_name') || 'guest';
+        const name = data?.username || localStorage.getItem(walletKey) || 'guest';
         setProfileName(name);
+        if (data?.username) localStorage.setItem(walletKey, data.username);
       });
   }, [myWallet]);
 
@@ -416,8 +435,7 @@ export default function MiningPage() {
   const [floatingTexts, setFloatingTexts] = useState<{ id: number; x: number; y: number; text: string; isCritical: boolean }[]>([]);
   const [shake, setShake] = useState<boolean>(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardPlayer[]>(() => {
-    const myName = localStorage.getItem('solchat_name') || 'Guest Miner';
-    return [{ username: myName, score: 0, hps: 0, isMe: true }];
+    return [{ username: 'Guest Miner', score: 0, hps: 0, isMe: true }];
   });
 
   // Token management states

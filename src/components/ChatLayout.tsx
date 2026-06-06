@@ -355,12 +355,38 @@ export default function ChatLayout() {
     setDisplayNames(prev => ({ ...prev, ...names }));
   }, []);
 
+  // Track previous wallet so we can clean up when it switches
+  const prevWalletRef = useRef('');
+
   useEffect(() => {
+    const prevWallet = prevWalletRef.current;
+
+    // ── Wallet disconnected or changed ──────────────────────────
     if (!myWallet) {
+      // Evict old wallet's in-memory cache entry so it can't bleed
+      if (prevWallet) {
+        delete usernameCache[prevWallet];
+        delete usernameCache[prevWallet.toLowerCase()];
+      }
+      prevWalletRef.current = '';
       setProfileName('guest');
       setFreeUsed(0);
       return;
     }
+
+    // ── Wallet actually switched to a different account ──────────
+    if (prevWallet && prevWallet !== myWallet) {
+      // Immediately reset to 'guest' — do NOT read old localStorage
+      setProfileName('guest');
+      // Evict old wallet's cache so its name isn't returned for new wallet
+      delete usernameCache[prevWallet];
+      delete usernameCache[prevWallet.toLowerCase()];
+    }
+
+    prevWalletRef.current = myWallet;
+
+    // Use wallet-scoped localStorage key so names never bleed across accounts
+    const walletKey = `solchat_name_${myWallet}`;
 
     supabase
       .from('usernames')
@@ -368,10 +394,11 @@ export default function ChatLayout() {
       .ilike('wallet_address', myWallet)
       .maybeSingle()
       .then(({ data }) => {
-        const name = data?.username || localStorage.getItem('solchat_name') || 'guest';
+        // DB is authoritative; only fall back to the WALLET-SCOPED local key
+        const name = data?.username || localStorage.getItem(walletKey) || 'guest';
         setProfileName(name);
         if (data?.username) {
-          localStorage.setItem('solchat_name', data.username);
+          localStorage.setItem(walletKey, data.username);
           usernameCache[myWallet] = data.username;
           usernameCache[myWallet.toLowerCase()] = data.username;
         }
@@ -716,7 +743,8 @@ export default function ChatLayout() {
       }
 
       setProfileName(name);
-      localStorage.setItem('solchat_name', name);
+      // Use wallet-scoped key so saving one wallet's name never bleeds to another
+      localStorage.setItem(`solchat_name_${myWallet}`, name);
       usernameCache[myWallet] = name;
       usernameCache[myWallet.toLowerCase()] = name;
     } catch (e: any) {

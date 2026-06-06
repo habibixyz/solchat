@@ -136,7 +136,7 @@ export function DMPage() {
       }
 
       setProfileName(clean);
-      localStorage.setItem('solchat_name', clean);
+      localStorage.setItem(`solchat_name_${myWallet}`, clean);
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Failed to claim username (might be taken)');
@@ -195,14 +195,16 @@ export function DMPage() {
       setProfileName('guest');
       return;
     }
+    const walletKey = `solchat_name_${myWallet}`;
     supabase
       .from('usernames')
       .select('wallet_address, username')
       .ilike('wallet_address', myWallet)
       .maybeSingle()
       .then(({ data }) => {
-        const name = data?.username || localStorage.getItem('solchat_name') || 'guest';
+        const name = data?.username || localStorage.getItem(walletKey) || 'guest';
         setProfileName(name);
+        if (data?.username) localStorage.setItem(walletKey, data.username);
       });
   }, [myWallet]);
 
