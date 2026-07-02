@@ -20,9 +20,29 @@ export async function fetchAnsemBalance(connection: Connection, walletAddress: s
     const ata = getAssociatedTokenAddressSync(ANSEM_MINT, ownerPubkey);
     const balanceInfo = await connection.getTokenAccountBalance(ata);
     return balanceInfo.value.uiAmount ?? 0;
-  } catch (error) {
-    // If account doesn't exist or is not initialized, balance is 0
-    return 0;
+  } catch (error: any) {
+    const errMsg = error?.message || String(error);
+    // If the account just doesn't exist on-chain, it means the user's balance is 0.
+    if (errMsg.includes("could not find account") || errMsg.includes("Invalid param")) {
+      return 0;
+    }
+    
+    // Attempt fallback to public mainnet RPC
+    try {
+      console.warn("Primary RPC failed to fetch balance, trying fallback RPC...", errMsg);
+      const fallbackConn = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+      const ownerPubkey = new PublicKey(walletAddress);
+      const ata = getAssociatedTokenAddressSync(ANSEM_MINT, ownerPubkey);
+      const balanceInfo = await fallbackConn.getTokenAccountBalance(ata);
+      return balanceInfo.value.uiAmount ?? 0;
+    } catch (fallbackError: any) {
+      const fallbackErrMsg = fallbackError?.message || String(fallbackError);
+      if (fallbackErrMsg.includes("could not find account") || fallbackErrMsg.includes("Invalid param")) {
+        return 0;
+      }
+      console.error("Fallback RPC also failed to fetch balance:", fallbackError);
+      return 0;
+    }
   }
 }
 
@@ -45,13 +65,23 @@ export async function sendAnsemTip(
     throw new Error("Invalid recipient wallet address");
   }
 
+  // Use helper to resolve the working connection
+  let activeConn = connection;
+  try {
+    // Quick test if primary connection works
+    await connection.getLatestBlockhash('confirmed');
+  } catch (err) {
+    console.warn("Primary connection failed during tip transaction preparation. Using fallback RPC.", err);
+    activeConn = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+  }
+
   const senderATA = getAssociatedTokenAddressSync(ANSEM_MINT, senderPubkey);
   const recipientATA = getAssociatedTokenAddressSync(ANSEM_MINT, recipientPubkey);
 
   const transaction = new Transaction();
 
   // Check if recipient ATA exists. If not, add instruction to create it.
-  const recipientAccountInfo = await connection.getAccountInfo(recipientATA);
+  const recipientAccountInfo = await activeConn.getAccountInfo(recipientATA);
   if (!recipientAccountInfo) {
     transaction.add(
       createAssociatedTokenAccountInstruction(
@@ -76,11 +106,11 @@ export async function sendAnsemTip(
     )
   );
 
-  const { blockhash } = await connection.getLatestBlockhash('confirmed');
+  const { blockhash } = await activeConn.getLatestBlockhash('confirmed');
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = senderPubkey;
 
-  const signature = await wallet.sendTransaction(transaction, connection);
+  const signature = await wallet.sendTransaction(transaction, activeConn);
   return signature;
 }
 

@@ -15,7 +15,10 @@ import {
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 
-const endpoint = import.meta.env.VITE_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const rawEndpoint = import.meta.env.VITE_SOLANA_RPC_URL;
+const endpoint = rawEndpoint 
+  ? rawEndpoint.trim().replace(/\\n$/, '').replace(/\n$/, '').trim() 
+  : "https://api.mainnet-beta.solana.com";
 
 export const WalletContext = ({ children }: { children: ReactNode }) => {
 

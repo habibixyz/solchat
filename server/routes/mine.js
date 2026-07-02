@@ -34,7 +34,7 @@ const router = express.Router();
 
 // Parse and cleanup RPC URL
 const rawRpc = process.env.VITE_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-const rpcUrl = rawRpc.replace('VITE_SOLANA_RPC_URL=', '');
+const rpcUrl = rawRpc.replace('VITE_SOLANA_RPC_URL=', '').trim().replace(/\\n$/, '').replace(/\n$/, '').trim();
 
 // Setup connection
 const connection = new Connection(rpcUrl, 'confirmed');
