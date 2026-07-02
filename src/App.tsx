@@ -107,6 +107,8 @@ export default function App() {
         <footer className="sc-footer">
           © 2026 · Solchat.fun · Built by{" "}
           <a href="https://twitter.com/ritmir11" target="_blank" rel="noreferrer">@ritmir11</a>
+          {" · "}
+          <a href="https://gitlab.com/tanizcoldz/solchat.fun" target="_blank" rel="noreferrer">GitLab</a>
         </footer>
       )}
 

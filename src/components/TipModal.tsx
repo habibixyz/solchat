@@ -23,7 +23,7 @@ export default function TipModal({
 
   const [balance, setBalance] = useState<number>(0);
   const [balanceLoading, setBalanceLoading] = useState<boolean>(false);
-  const [tipAmount, setTipAmount] = useState<string>('500');
+  const [tipAmount, setTipAmount] = useState<string>('0.5');
   const [customMessage, setCustomMessage] = useState<string>('');
   const [broadcast, setBroadcast] = useState<boolean>(true);
 
@@ -42,7 +42,7 @@ export default function TipModal({
       setTxSignature('');
       setErrorMessage('');
       setCustomMessage('');
-      setTipAmount('500');
+      setTipAmount('0.5');
     }
   }, [isOpen]);
 
@@ -70,7 +70,7 @@ export default function TipModal({
   const displayRecipient = recipientUsername && recipientUsername !== 'guest' ? `@${recipientUsername}` : shortWallet(recipientWallet);
 
   const amountVal = parseFloat(tipAmount);
-  const isValidAmount = !isNaN(amountVal) && amountVal > 0;
+  const isValidAmount = !isNaN(amountVal) && amountVal >= 0.1;
   const hasEnoughBalance = balance >= amountVal;
 
   const handleQuickSelect = (amt: number) => {
@@ -421,13 +421,13 @@ export default function TipModal({
             ) : (
               <>
                 <div className="tip-quick-amounts">
-                  {[100, 500, 1000, 5000].map((amt) => (
+                  {[0.1, 0.5, 1, 5].map((amt) => (
                     <button
                       key={amt}
                       className={`tip-quick-btn ${tipAmount === String(amt) ? 'active' : ''}`}
                       onClick={() => handleQuickSelect(amt)}
                     >
-                      {amt.toLocaleString()}
+                      {amt < 1 ? amt : amt.toLocaleString()}
                     </button>
                   ))}
                 </div>
@@ -482,10 +482,10 @@ export default function TipModal({
                   disabled={!isValidAmount || !hasEnoughBalance}
                 >
                   {!isValidAmount 
-                    ? 'Enter Amount' 
+                    ? 'Min 0.1 $ANSEM' 
                     : !hasEnoughBalance 
                       ? 'Insufficient Balance' 
-                      : `Tip ${amountVal.toLocaleString()} $ANSEM`}
+                      : `Tip ${amountVal.toLocaleString(undefined, { maximumFractionDigits: 6 })} $ANSEM`}
                 </button>
               </>
             )}
