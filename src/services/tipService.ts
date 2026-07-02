@@ -72,28 +72,93 @@ async function fetchBalanceFromConn(conn: Connection, walletAddress: string): Pr
 }
 
 /**
+ * Last-resort: direct JSON-RPC POST to fetch token accounts.
+ * Bypasses @solana/web3.js entirely — more resilient to library-level failures.
+ */
+async function fetchBalanceViaRawRPC(rpcUrl: string, walletAddress: string): Promise<number> {
+  const body = JSON.stringify({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'getTokenAccountsByOwner',
+    params: [
+      walletAddress,
+      { mint: ANSEM_MINT.toBase58() },
+      { encoding: 'jsonParsed' }
+    ]
+  });
+
+  const resp = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  });
+
+  if (!resp.ok) {
+    console.warn(`[ANSEM] Raw RPC ${rpcUrl} returned ${resp.status}`);
+    return 0;
+  }
+
+  const json = await resp.json();
+  if (json.error) {
+    console.warn('[ANSEM] Raw RPC error:', json.error);
+    return 0;
+  }
+
+  const accounts = json.result?.value ?? [];
+  let total = 0;
+  for (const acct of accounts) {
+    const amt = acct.account?.data?.parsed?.info?.tokenAmount?.uiAmount ?? 0;
+    total += amt;
+  }
+
+  console.log(`[ANSEM] Raw RPC found ${accounts.length} accounts, total balance: ${total}`);
+  return total;
+}
+
+const PUBLIC_RPCS = [
+  'https://api.mainnet-beta.solana.com',
+  'https://solana-mainnet.g.alchemy.com/v2/demo',
+];
+
+/**
  * Fetches the user's $ANSEM token balance.
- * Tries the provided connection first, then falls back to the public mainnet RPC.
+ * Uses multiple strategies and RPC endpoints for maximum reliability.
  */
 export async function fetchAnsemBalance(connection: Connection, walletAddress: string): Promise<number> {
   if (!walletAddress) return 0;
 
-  // Try primary connection
+  // Strategy A: Try the wallet adapter's connection (may be Helius or any custom RPC)
   try {
     const bal = await fetchBalanceFromConn(connection, walletAddress);
     if (bal > 0) return bal;
   } catch (e) {
-    console.warn('Primary RPC balance fetch failed:', e);
+    console.warn('[ANSEM] Primary connection failed:', e);
   }
 
-  // Fallback to public RPC
-  try {
-    const fallbackConn = new Connection(FALLBACK_RPC, 'confirmed');
-    return await fetchBalanceFromConn(fallbackConn, walletAddress);
-  } catch (e) {
-    console.error('Fallback RPC balance fetch also failed:', e);
-    return 0;
+  // Strategy B: Try direct JSON-RPC POST to each public RPC
+  // This bypasses @solana/web3.js and is more resilient to rate limiting
+  for (const rpc of PUBLIC_RPCS) {
+    try {
+      const bal = await fetchBalanceViaRawRPC(rpc, walletAddress);
+      if (bal > 0) return bal;
+    } catch (e) {
+      console.warn(`[ANSEM] Raw RPC ${rpc} failed:`, e);
+    }
   }
+
+  // Strategy C: @solana/web3.js with public RPC as Connection object
+  for (const rpc of PUBLIC_RPCS) {
+    try {
+      const fallbackConn = new Connection(rpc, 'confirmed');
+      const bal = await fetchBalanceFromConn(fallbackConn, walletAddress);
+      if (bal > 0) return bal;
+    } catch (e) {
+      console.warn(`[ANSEM] Fallback connection ${rpc} failed:`, e);
+    }
+  }
+
+  console.error('[ANSEM] All balance fetch strategies exhausted, returning 0');
+  return 0;
 }
 
 /**
