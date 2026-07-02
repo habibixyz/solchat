@@ -254,6 +254,14 @@ const CSS = `
   .cl-inp::placeholder { color:#566174; }
   @keyframes scPulse { 0%,100%{opacity:1} 50%{opacity:.35} }
   .cl-live { animation: scPulse 2.2s ease infinite; }
+  @keyframes heartPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.4); }
+    100% { transform: scale(1); }
+  }
+  .heart-liked {
+    animation: heartPop 0.3s ease-in-out;
+  }
 `;
 
 function PanelWrap({ show, children }: { show: boolean; children: ReactNode }) {
@@ -625,7 +633,7 @@ export default function ChatLayout() {
       return;
     }
 
-    const rows = ((data ?? []) as Message[]).reverse();
+    const rows = ((data ?? []) as Message[]).filter(m => !m.text?.startsWith('[SYSTEM_FOLLOW]:')).reverse();
     setMessages(rows);
     setOldestDate(rows[0]?.created_at ?? null);
     mergeNames(rows);
@@ -645,6 +653,7 @@ export default function ChatLayout() {
     const ch = supabase.channel('msgs-rt')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
         const msg = payload.new as Message;
+        if (msg.text?.startsWith('[SYSTEM_FOLLOW]:')) return;
         setMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg].slice(-90));
         mergeNames([msg]);
         fetchReactions([msg.id], myWallet).then(r => setReactions(prev => ({ ...prev, ...r }))).catch(console.warn);
@@ -707,7 +716,7 @@ export default function ChatLayout() {
       .limit(LIMIT);
 
     if (!data?.length) return;
-    const rows = (data as Message[]).reverse();
+    const rows = (data as Message[]).filter(m => !m.text?.startsWith('[SYSTEM_FOLLOW]:')).reverse();
     setMessages(prev => [...rows, ...prev]);
     setOldestDate(rows[0]?.created_at ?? oldestDate);
     mergeNames(rows);
@@ -855,6 +864,26 @@ export default function ChatLayout() {
     </div>
   );
 
+  const HeartIcon = ({ filled }: { filled: boolean }) => (
+    <svg 
+      width="13" 
+      height="12" 
+      viewBox="0 0 24 24" 
+      fill={filled ? "#f91880" : "none"} 
+      stroke={filled ? "#f91880" : "currentColor"} 
+      strokeWidth="2.5" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+      style={{ 
+        transition: 'transform 0.2s ease, fill 0.2s ease',
+        transform: filled ? 'scale(1.1)' : 'scale(1)',
+        marginRight: 4
+      }}
+    >
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  );
+
   const MsgActions = ({ msg, showReact }: { msg: Message; showReact?: boolean }) => {
     const rc = reactions[msg.id];
     const sigN = msg.reactionCount ?? rc?.signal ?? 0;
@@ -863,8 +892,31 @@ export default function ChatLayout() {
     return (
       <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
         {showReact && myWallet && (
-          <button className="cl-btn" disabled={mine || reactingId === msg.id} onClick={() => handleReact(msg.id)} title="Like">
-            <span style={{ color: mine ? T.green : '#e1b84b' }}>like</span>{sigN > 0 && <span>{sigN}</span>}
+          <button 
+            className="cl-btn" 
+            disabled={mine || reactingId === msg.id} 
+            onClick={() => handleReact(msg.id)} 
+            title="Like"
+            style={{
+              borderColor: mine ? 'rgba(249, 24, 128, 0.25)' : 'rgba(255,255,255,.09)',
+              background: mine ? 'rgba(249, 24, 128, 0.08)' : 'transparent',
+              color: mine ? '#f91880' : '#7f8da1',
+              padding: '0 8px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <span className={mine ? "heart-liked" : ""} style={{ display: 'inline-flex', alignItems: 'center' }}>
+              <HeartIcon filled={mine} />
+            </span>
+            {sigN > 0 && (
+              <span style={{ 
+                color: mine ? '#f91880' : '#7f8da1', 
+                fontWeight: 700,
+                fontSize: '11px'
+              }}>
+                {sigN}
+              </span>
+            )}
           </button>
         )}
         <button className="cl-btn" onClick={() => { setReplyTo(msg); setTimeout(() => inputRef.current?.focus(), 30); }}>reply</button>
@@ -995,6 +1047,10 @@ export default function ChatLayout() {
       <div className={`cl-nav-link-custom${location.pathname === '/discover' ? ' active' : ''}`} onClick={() => navigate('/discover')}>
         <span className="cl-nav-icon">○</span>
         <span>Discover</span>
+      </div>
+      <div className={`cl-nav-link-custom${location.pathname === '/ansem' ? ' active' : ''}`} onClick={() => navigate('/ansem')}>
+        <span className="cl-nav-icon">💸</span>
+        <span>$ANSEM</span>
       </div>
       {myWallet && profileName !== 'guest' && (
         <div className={`cl-nav-link-custom${location.pathname.startsWith('/profile') ? ' active' : ''}`} onClick={() => navigate(`/profile/${encodeURIComponent(profileName)}`)}>

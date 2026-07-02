@@ -718,6 +718,15 @@ export default function Discover() {
 
       {/* Unified Page Tabs */}
       <div style={{ display:"flex", gap:4, marginRight: 8, flexShrink:0 }}>
+        <button onClick={() => navigate("/ansem")}
+          style={{
+            background: activeTab === "ansem" ? C.cyanDim : "transparent",
+            color: activeTab === "ansem" ? C.cyan : C.textMid,
+            border: `1px solid ${activeTab === "ansem" ? C.cyan + "55" : "transparent"}`,
+            borderRadius: 5, padding: isMobile ? "4px 8px" : "4px 10px", fontSize: isMobile ? 9 : 11, fontFamily: mono, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4
+          }}>
+          💸 {!isMobile && "$ANSEM"}
+        </button>
         <button onClick={() => navigate("/discover")}
           style={{
             background: activeTab === "discover" ? C.cyanDim : "transparent",
@@ -912,7 +921,12 @@ export default function Discover() {
           <div style={styles.label}>What We're Building</div>
           <div style={styles.lead}>Something native to crypto.</div>
           <ul style={{ padding: 0, margin: "16px 0 20px" }}>
-            {["A shared surface for builders, traders, creators, and communities", "Conversation that moves as fast as liquidity", "Attention expressed, not extracted"].map((item, i) => (
+            {[
+              "A shared surface for builders, traders, creators, and communities",
+              "Real-money on-chain tipping directly in the feed using the $ANSEM utility token",
+              "Decentralized identity with case-insensitive unique usernames",
+              "Frictionless inline token swaps powered by the Jupiter Aggregator"
+            ].map((item, i) => (
               <li key={i} style={listItem}><span style={{ color: C.cyan, opacity: 0.4, flexShrink: 0 }}>—</span>{item}</li>
             ))}
           </ul>
@@ -925,8 +939,8 @@ export default function Discover() {
           <div style={styles.vline} />
 
           <div style={styles.label}>Current Phase</div>
-          <div style={styles.sigilName}>POINT ACCUMULATION</div>
-          <p style={{ ...styles.p, marginTop: 12 }}>The Solchat ecosystem is currently in its pre-launch mining stage. The mainnet is not yet live, and no official token is currently active or tradable. This is the gameplay and point accumulation phase: mine chips, overclock rigs, compete on the leaderboard, and secure your early standing on the surface.</p>
+          <div style={styles.sigilName}>UTILITY & TIPPING LIVE</div>
+          <p style={{ ...styles.p, marginTop: 12 }}>Solchat has officially transitioned to its mainnet utility phase. The native tipping token <strong>$ANSEM (The Black Bull)</strong> is live. Connect your Solana wallet, claim your unique handle, tip other builders directly inside the chat feed, track real-time token metrics, and swap tokens instantly via the inline Jupiter aggregator terminal.</p>
           <div style={styles.vline} />
 
           <div style={styles.closing}>Crypto does not need another social app.<br />It needs a social layer.</div>
@@ -1167,6 +1181,10 @@ export default function Discover() {
           <div className={`cl-nav-link-custom${location.pathname === '/discover' || location.pathname === '/manifesto' || location.pathname.startsWith('/blog') ? ' active' : ''}`} onClick={() => navigate('/discover')}>
             <span className="cl-nav-icon">○</span>
             <span>Discover</span>
+          </div>
+          <div className={`cl-nav-link-custom${location.pathname === '/ansem' ? ' active' : ''}`} onClick={() => navigate('/ansem')}>
+            <span className="cl-nav-icon">💸</span>
+            <span>$ANSEM</span>
           </div>
           {myWallet && profileName !== "guest" && (
             <div className={`cl-nav-link-custom${location.pathname.startsWith('/profile') ? ' active' : ''}`} onClick={() => navigate(`/profile/${encodeURIComponent(profileName)}`)}>

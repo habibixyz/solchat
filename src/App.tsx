@@ -13,6 +13,7 @@ import DiscoverPage from "./pages/DiscoverPage";
 import TokenPage from "./pages/TokenPage";
 import { DMPage } from './pages/DMPage';
 import MiningPage from './pages/MiningPage';
+import AnsemPage from './pages/AnsemPage';
 
 export default function App() {
   const location = useLocation();
@@ -24,6 +25,7 @@ export default function App() {
   const isDiscover =
     location.pathname === "/discover" ||
     location.pathname === "/manifesto" ||
+    location.pathname === "/ansem" ||
     location.pathname.startsWith("/token") ||
     location.pathname.startsWith("/blog") ||
     location.pathname.startsWith("/mine");
@@ -33,6 +35,7 @@ export default function App() {
   // Pages that need to scroll freely (not chat)
   const isScrollPage =
     location.pathname === "/manifesto" ||
+    location.pathname === "/ansem" ||
     location.pathname.startsWith("/blog") ||
     location.pathname.startsWith("/token");
 
@@ -68,6 +71,7 @@ export default function App() {
           <NavLink to="/"          className={({ isActive }) => isActive ? "sc-nav-link active" : "sc-nav-link"}>Chat</NavLink>
           <NavLink to="/mine"      className={({ isActive }) => isActive ? "sc-nav-link active" : "sc-nav-link"}>Mine ⛏️</NavLink>
           <NavLink to="/discover"  className={({ isActive }) => (isActive || location.pathname.startsWith("/manifesto") || location.pathname.startsWith("/blog")) ? "sc-nav-link active" : "sc-nav-link"}>Discover</NavLink>
+          <NavLink to="/ansem"     className={({ isActive }) => isActive ? "sc-nav-link active" : "sc-nav-link"}>$ANSEM</NavLink>
         </nav>
 
         {/* Wallet button */}
@@ -84,6 +88,7 @@ export default function App() {
           <Route path="/chat"                element={<Navigate to="/" />} />
           <Route path="/manifesto"           element={<DiscoverPage />} />
           <Route path="/discover"            element={<DiscoverPage />} />
+          <Route path="/ansem"               element={<AnsemPage />} />
           <Route path="/token/:address"      element={<TokenPage />} />
           <Route path="/profile/:username"   element={<ProfilePage />} />
           <Route path="/blog"                element={<DiscoverPage />} />

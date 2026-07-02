@@ -3,6 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { supabase } from '../lib/supabase';
 import TipModal from '../components/TipModal';
+import { 
+  followUser, 
+  unfollowUser, 
+  checkIfFollowing, 
+  fetchFollowCounts, 
+  fetchFollowersList, 
+  fetchFollowingList 
+} from '../services/followService';
 
 interface UserRecord {
   wallet_address: string;
@@ -111,7 +119,10 @@ async function fetchUserMessages(user: UserRecord) {
 
   for (const run of attempts) {
     const { data, error } = await run();
-    if (!error) return Array.isArray(data) ? data : [];
+    if (!error) {
+      const rows = Array.isArray(data) ? data : [];
+      return rows.filter(m => !m.text?.startsWith('[SYSTEM_FOLLOW]:'));
+    }
     const msg = error.message || '';
     if (!msg.includes('column') && !msg.includes('schema cache') && !msg.includes('Could not find')) break;
   }
@@ -138,8 +149,71 @@ export default function ProfilePage() {
   const [loadingLikes, setLoadingLikes] = useState(false);
   const [loadingNotifs, setLoadingNotifs] = useState(false);
 
+  // ── Follow Feature States ──
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [followersList, setFollowersList] = useState<any[]>([]);
+  const [followingList, setFollowingList] = useState<any[]>([]);
+  const [loadingFollowersList, setLoadingFollowersList] = useState(false);
+  const [loadingFollowingList, setLoadingFollowingList] = useState(false);
+
   const myWallet = publicKey?.toBase58?.();
   const isOwner = !!myWallet && !!user && myWallet === user.wallet_address;
+
+  async function openFollowers() {
+    if (!user?.wallet_address) return;
+    setShowFollowersModal(true);
+    setLoadingFollowersList(true);
+    try {
+      const list = await fetchFollowersList(user.wallet_address);
+      setFollowersList(list);
+    } catch (e) {
+      console.warn('Failed to load followers:', e);
+    } finally {
+      setLoadingFollowersList(false);
+    }
+  }
+
+  async function openFollowing() {
+    if (!user?.wallet_address) return;
+    setShowFollowingModal(true);
+    setLoadingFollowingList(true);
+    try {
+      const list = await fetchFollowingList(user.wallet_address);
+      setFollowingList(list);
+    } catch (e) {
+      console.warn('Failed to load following:', e);
+    } finally {
+      setLoadingFollowingList(false);
+    }
+  }
+
+  async function handleFollowToggle() {
+    if (!myWallet) return alert('Connect wallet first');
+    if (!user || myWallet.toLowerCase() === user.wallet_address.toLowerCase()) return;
+    
+    setFollowLoading(true);
+    try {
+      if (isFollowing) {
+        await unfollowUser(myWallet, user.wallet_address);
+        setIsFollowing(false);
+        setFollowersCount(prev => Math.max(0, prev - 1));
+      } else {
+        await followUser(myWallet, user.wallet_address);
+        setIsFollowing(true);
+        setFollowersCount(prev => prev + 1);
+      }
+    } catch (err: any) {
+      alert(`Action failed: ${err.message}`);
+    } finally {
+      setFollowLoading(false);
+    }
+  }
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -155,6 +229,9 @@ export default function ProfilePage() {
       setUser(null);
       setMessages([]);
       setActiveTab('signals');
+      setFollowersCount(0);
+      setFollowingCount(0);
+      setIsFollowing(false);
 
       try {
         if (!username) return;
@@ -163,6 +240,23 @@ export default function ProfilePage() {
 
         setUser(resolved);
         if (!resolved) return;
+
+        fetchFollowCounts(resolved.wallet_address)
+          .then(counts => {
+            if (!alive) return;
+            setFollowersCount(counts.followersCount);
+            setFollowingCount(counts.followingCount);
+          })
+          .catch(console.warn);
+
+        if (myWallet && myWallet.toLowerCase() !== resolved.wallet_address.toLowerCase()) {
+          checkIfFollowing(myWallet, resolved.wallet_address)
+            .then(following => {
+              if (!alive) return;
+              setIsFollowing(following);
+            })
+            .catch(console.warn);
+        }
 
         const rows = await withTimeout(fetchUserMessages(resolved), 7000);
         if (alive) setMessages(rows);
@@ -175,7 +269,7 @@ export default function ProfilePage() {
 
     load();
     return () => { alive = false; };
-  }, [username]);
+  }, [username, myWallet]);
 
   // ── Fetch Liked Messages ──
   useEffect(() => {
@@ -206,7 +300,9 @@ export default function ProfilePage() {
         if (msgError) throw msgError;
 
         // Sort messages according to reaction order
-        const sorted = (msgs ?? []).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+        const sorted = (msgs ?? [])
+          .filter(m => !m.text?.startsWith('[SYSTEM_FOLLOW]:'))
+          .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
         setLikedMessages(sorted);
       } catch (e) {
         console.warn('Failed to load likes:', e);
@@ -291,6 +387,24 @@ export default function ProfilePage() {
                 <div>
                   <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', fontFamily: 'Outfit, sans-serif' }}>@{user.username}</div>
                   <div style={{ color: T.green, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginTop: 4, textTransform: 'uppercase' }}>Verified Node</div>
+                  <div style={{ display: 'flex', gap: 14, marginTop: 8, fontSize: 13, justifyContent: 'center' }}>
+                    <span 
+                      onClick={openFollowers} 
+                      style={{ color: T.dim, cursor: 'pointer', transition: 'color 0.2s' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = T.dim}
+                    >
+                      <b style={{ color: '#fff', marginRight: 3 }}>{followersCount}</b> Followers
+                    </span>
+                    <span 
+                      onClick={openFollowing} 
+                      style={{ color: T.dim, cursor: 'pointer', transition: 'color 0.2s' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = T.dim}
+                    >
+                      <b style={{ color: '#fff', marginRight: 3 }}>{followingCount}</b> Following
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -315,6 +429,49 @@ export default function ProfilePage() {
 
               {!isOwner && myWallet && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
+                  <button 
+                    onClick={handleFollowToggle}
+                    disabled={followLoading}
+                    style={{ 
+                      width: '100%', 
+                      height: 42, 
+                      borderRadius: 10, 
+                      border: isFollowing ? `1px solid ${T.line}` : 'none', 
+                      background: isFollowing ? 'transparent' : '#fff', 
+                      color: isFollowing ? '#fff' : '#000', 
+                      cursor: 'pointer', 
+                      fontWeight: 850, 
+                      fontSize: 13, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      transition: 'all 0.2s',
+                      boxShadow: isFollowing ? 'none' : '0 4px 15px rgba(255,255,255,0.1)'
+                    }}
+                    onMouseEnter={(e) => { 
+                      if (isFollowing) {
+                        e.currentTarget.style.color = '#ff4d4d';
+                        e.currentTarget.style.borderColor = 'rgba(255, 77, 77, 0.4)';
+                        e.currentTarget.style.background = 'rgba(255, 77, 77, 0.08)';
+                        e.currentTarget.textContent = 'Unfollow';
+                      } else {
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }
+                    }}
+                    onMouseLeave={(e) => { 
+                      if (isFollowing) {
+                        e.currentTarget.style.color = '#fff';
+                        e.currentTarget.style.borderColor = T.line;
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.textContent = 'Following';
+                      } else {
+                        e.currentTarget.style.transform = 'none';
+                      }
+                    }}
+                  >
+                    {isFollowing ? 'Following' : 'Follow'}
+                  </button>
+
                   <button 
                     onClick={() => navigate(`/dm?dm=${user.wallet_address}`)} 
                     style={{ width: '100%', height: 42, borderRadius: 10, border: '1px solid rgba(29,158,117,.35)', background: 'rgba(29,158,117,.12)', color: '#fff', cursor: 'pointer', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(29,158,117,0.15)' }}
@@ -472,6 +629,145 @@ export default function ProfilePage() {
         recipientUsername={user.username}
         senderUsername={localStorage.getItem(`solchat_name_${myWallet}`) || 'guest'}
       />
+
+      <FollowListModal
+        isOpen={showFollowersModal}
+        onClose={() => setShowFollowersModal(false)}
+        title="Followers"
+        list={followersList}
+        loading={loadingFollowersList}
+      />
+
+      <FollowListModal
+        isOpen={showFollowingModal}
+        onClose={() => setShowFollowingModal(false)}
+        title="Following"
+        list={followingList}
+        loading={loadingFollowingList}
+      />
+    </div>
+  );
+}
+
+interface FollowListModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  list: { wallet_address: string; username: string; avatar_url?: string }[];
+  loading: boolean;
+}
+
+function FollowListModal({ isOpen, onClose, title, list, loading }: FollowListModalProps) {
+  const navigate = useNavigate();
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        background: 'rgba(2, 2, 3, 0.8)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: 16
+      }}
+      onClick={onClose}
+    >
+      <div 
+        style={{
+          width: '100%',
+          maxWidth: 440,
+          background: '#09090b',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 16,
+          overflow: 'hidden',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
+          display: 'flex',
+          flexDirection: 'column',
+          maxHeight: '80vh'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, fontFamily: 'Outfit, sans-serif', color: '#fff' }}>{title}</h3>
+          <button 
+            onClick={onClose} 
+            style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 22, lineHeight: '1', padding: 0 }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Modal Content */}
+        <div style={{ overflowY: 'auto', padding: '12px 0', flex: 1 }}>
+          {loading ? (
+            <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13, fontWeight: 600 }}>
+              Retrieving profile directory...
+            </div>
+          ) : list.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13, fontWeight: 600 }}>
+              No profiles found in this category
+            </div>
+          ) : (
+            list.map(p => (
+              <a 
+                href={`/profile/${p.username}`} 
+                key={p.wallet_address}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 20px',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid rgba(255,255,255,0.02)',
+                  transition: 'background 0.2s'
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onClose();
+                  navigate(`/profile/${p.username}`);
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                {/* Avatar */}
+                <div style={{ 
+                  width: 38, 
+                  height: 38, 
+                  borderRadius: 10, 
+                  background: 'rgba(29,158,117,0.1)', 
+                  border: '1px solid rgba(29,158,117,0.3)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  color: '#1D9E75',
+                  fontWeight: 800,
+                  fontSize: 14,
+                  overflow: 'hidden'
+                }}>
+                  {p.avatar_url ? (
+                    <img src={p.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    p.username.slice(0, 2).toUpperCase()
+                  )}
+                </div>
+
+                {/* Handle and Wallet */}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>@{p.username}</span>
+                  <span style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>
+                    {p.wallet_address.slice(0, 5)}...{p.wallet_address.slice(-5)}
+                  </span>
+                </div>
+              </a>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }

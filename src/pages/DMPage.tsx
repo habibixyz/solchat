@@ -409,6 +409,10 @@ export function DMPage() {
             <span className="cl-nav-icon">○</span>
             <span>Discover</span>
           </div>
+          <div className={`cl-nav-link-custom${location.pathname === '/ansem' ? ' active' : ''}`} onClick={() => navigate('/ansem')}>
+            <span className="cl-nav-icon">💸</span>
+            <span>$ANSEM</span>
+          </div>
           {myWallet && profileName !== 'guest' && (
             <div className={`cl-nav-link-custom${location.pathname.startsWith('/profile') ? ' active' : ''}`} onClick={() => navigate(`/profile/${encodeURIComponent(profileName)}`)}>
               <span className="cl-nav-icon">◉</span>

@@ -11,17 +11,18 @@ export default function SwapDrawer({ mint, onClose }: Props) {
       const Jupiter = (window as any).Jupiter;
       if (!Jupiter) return false;
       Jupiter.init({
-  displayMode: "integrated",
-  integratedTargetId: "jupiter-terminal",
-  formProps: {
-    initialInputMint: "So11111111111111111111111111111111111111112",
-    initialOutputMint: mint,
-  },
-  platformFeeAndAccounts: {
-    referralAccount: "HLtC6FYq1uJjkh2Hqz2LXoKWXMKV1Z22SmhAch5fJDii",
-    feeBps: 50,
-  },
-});
+        displayMode: "integrated",
+        integratedTargetId: "jupiter-terminal",
+        endpoint: "https://api.mainnet-beta.solana.com",
+        formProps: {
+          initialInputMint: "So11111111111111111111111111111111111111112",
+          initialOutputMint: mint,
+        },
+        platformFeeAndAccounts: {
+          referralAccount: "HLtC6FYq1uJjkh2Hqz2LXoKWXMKV1Z22SmhAch5fJDii",
+          feeBps: 50,
+        },
+      });
       return true;
     };
 

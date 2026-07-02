@@ -48,7 +48,12 @@ export default function ManifestoPage() {
       <div style={styles.label}>What We're Building</div>
       <div style={styles.lead}>Something native to crypto.</div>
       <ul style={{ padding: 0, margin: "16px 0 20px" }}>
-        {["A shared surface for builders, traders, creators, and communities", "Conversation that moves as fast as liquidity", "Attention expressed, not extracted"].map((item, i) => (
+        {[
+          "A shared surface for builders, traders, creators, and communities",
+          "Real-money on-chain tipping directly in the feed using the $ANSEM utility token",
+          "Decentralized identity with case-insensitive unique usernames",
+          "Frictionless inline token swaps powered by the Jupiter Aggregator"
+        ].map((item, i) => (
           <li key={i} style={listItem}><span style={{ color: "#00f7ff", opacity: 0.4, flexShrink: 0 }}>—</span>{item}</li>
         ))}
       </ul>
@@ -58,6 +63,11 @@ export default function ManifestoPage() {
       <div style={styles.label}>Origin Signal</div>
       <div style={styles.sigilName}>NULL <span style={{ color: "#00f7ff" }}>SIGIL</span></div>
       <p style={{ ...styles.p, marginTop: 12 }}>Before networks scale, they begin as signals. Null Sigil marks the first signal of Solchat's cultural layer. Not hype. Not noise. An early imprint on a new surface.</p>
+      <div style={styles.vline} />
+
+      <div style={styles.label}>Current Phase</div>
+      <div style={styles.sigilName}>UTILITY & TIPPING LIVE</div>
+      <p style={{ ...styles.p, marginTop: 12 }}>Solchat has officially transitioned to its mainnet utility phase. The native tipping token <strong>$ANSEM (The Black Bull)</strong> is live. Connect your Solana wallet, claim your unique handle, tip other builders directly inside the chat feed, track real-time token metrics, and swap tokens instantly via the inline Jupiter aggregator terminal.</p>
       <div style={styles.vline} />
 
       <div style={styles.closing}>Crypto does not need another social app.<br />It needs a social layer.</div>

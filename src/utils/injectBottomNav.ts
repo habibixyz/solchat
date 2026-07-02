@@ -11,9 +11,9 @@ export function injectBottomNav() {
       <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       <span>Feed</span>
     </a>
-    <a href="/trending" data-navlink>
-      <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-      <span>Trend</span>
+    <a href="/ansem" data-navlink>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+      <span>$ANSEM</span>
     </a>
     <a href="/mine" data-navlink>
       <svg viewBox="0 0 24 24"><path d="M14.5 2L22 9.5m-3.5-4L6.5 17.5M3 21l3.5-3.5M19 5l-2.5 2.5m-8 8L6 18"/></svg>
