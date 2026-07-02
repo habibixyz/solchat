@@ -3,7 +3,8 @@ import {
   getAssociatedTokenAddressSync, 
   createAssociatedTokenAccountInstruction, 
   createTransferInstruction,
-  TOKEN_PROGRAM_ID
+  TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID
 } from '@solana/spl-token';
 import { supabase } from '../lib/supabase';
 import { createMentionNotifications } from './notificationService';
@@ -61,7 +62,7 @@ async function fetchBalanceFromConn(conn: Connection, walletAddress: string): Pr
 
   // Strategy 3 (last resort): Standard ATA derivation
   try {
-    const ata = getAssociatedTokenAddressSync(ANSEM_MINT, ownerPubkey);
+    const ata = getAssociatedTokenAddressSync(ANSEM_MINT, ownerPubkey, false, TOKEN_2022_PROGRAM_ID);
     const balanceInfo = await conn.getTokenAccountBalance(ata);
     return balanceInfo.value.uiAmount ?? 0;
   } catch (_) {
@@ -191,7 +192,7 @@ export async function sendAnsemTip(
   }
 
   // Resolve sender's actual token account (may differ from standard ATA for pump.fun tokens)
-  let senderATA = getAssociatedTokenAddressSync(ANSEM_MINT, senderPubkey);
+  let senderATA = getAssociatedTokenAddressSync(ANSEM_MINT, senderPubkey, false, TOKEN_2022_PROGRAM_ID);
   try {
     const senderAccounts = await activeConn.getTokenAccountsByOwner(senderPubkey, { mint: ANSEM_MINT });
     if (senderAccounts.value.length > 0) {
@@ -201,7 +202,7 @@ export async function sendAnsemTip(
     // fallback to derived ATA
   }
 
-  const recipientATA = getAssociatedTokenAddressSync(ANSEM_MINT, recipientPubkey);
+  const recipientATA = getAssociatedTokenAddressSync(ANSEM_MINT, recipientPubkey, false, TOKEN_2022_PROGRAM_ID);
 
   const transaction = new Transaction();
 
@@ -210,10 +211,11 @@ export async function sendAnsemTip(
   if (!recipientAccountInfo) {
     transaction.add(
       createAssociatedTokenAccountInstruction(
-        senderPubkey,      // payer
-        recipientATA,      // associated token address
-        recipientPubkey,   // owner
-        ANSEM_MINT         // mint
+        senderPubkey,            // payer
+        recipientATA,            // associated token address
+        recipientPubkey,         // owner
+        ANSEM_MINT,              // mint
+        TOKEN_2022_PROGRAM_ID    // programId
       )
     );
   }
@@ -227,7 +229,9 @@ export async function sendAnsemTip(
       senderATA,
       recipientATA,
       senderPubkey,
-      baseAmount
+      baseAmount,
+      [],
+      TOKEN_2022_PROGRAM_ID
     )
   );
 
