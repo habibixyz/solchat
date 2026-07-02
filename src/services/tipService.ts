@@ -15,22 +15,34 @@ const FALLBACK_RPC = "https://api.mainnet-beta.solana.com";
 
 /**
  * Attempts to fetch $ANSEM balance from a single connection.
- * First tries the standard ATA derivation, then falls back to
- * scanning all token accounts for the mint via getTokenAccountsByOwner.
+ * Uses getParsedTokenAccountsByOwner (mint filter) as primary strategy —
+ * this handles non-standard ATAs (e.g. pump.fun tokens) in a single RPC call.
+ * Falls back to standard ATA derivation as a secondary strategy.
  */
 async function fetchBalanceFromConn(conn: Connection, walletAddress: string): Promise<number> {
   const ownerPubkey = new PublicKey(walletAddress);
 
-  // Strategy 1: Standard ATA lookup
+  // Strategy 1 (primary): getParsedTokenAccountsByOwner with mint filter
+  // This finds ALL token accounts for this mint regardless of how they were created
   try {
-    const ata = getAssociatedTokenAddressSync(ANSEM_MINT, ownerPubkey);
-    const balanceInfo = await conn.getTokenAccountBalance(ata);
-    return balanceInfo.value.uiAmount ?? 0;
-  } catch (_) {
-    // ATA may not exist or derivation may not match — fall through
+    const resp = await conn.getParsedTokenAccountsByOwner(ownerPubkey, {
+      mint: ANSEM_MINT,
+    });
+    if (resp.value.length > 0) {
+      let total = 0;
+      for (const acct of resp.value) {
+        const parsed = acct.account.data.parsed?.info?.tokenAmount;
+        const amt = parsed?.uiAmount ?? 0;
+        total += amt;
+        console.log(`[ANSEM] Found token account ${acct.pubkey.toBase58()} with balance ${amt}`);
+      }
+      if (total > 0) return total;
+    }
+  } catch (e: any) {
+    console.warn('[ANSEM] getParsedTokenAccountsByOwner failed:', e?.message);
   }
 
-  // Strategy 2: Scan all token accounts for this mint
+  // Strategy 2 (fallback): getTokenAccountsByOwner (raw, then fetch balance)
   try {
     const resp = await conn.getTokenAccountsByOwner(ownerPubkey, {
       mint: ANSEM_MINT,
@@ -41,10 +53,19 @@ async function fetchBalanceFromConn(conn: Connection, walletAddress: string): Pr
         const info = await conn.getTokenAccountBalance(acct.pubkey);
         total += info.value.uiAmount ?? 0;
       }
-      return total;
+      if (total > 0) return total;
     }
+  } catch (e: any) {
+    console.warn('[ANSEM] getTokenAccountsByOwner failed:', e?.message);
+  }
+
+  // Strategy 3 (last resort): Standard ATA derivation
+  try {
+    const ata = getAssociatedTokenAddressSync(ANSEM_MINT, ownerPubkey);
+    const balanceInfo = await conn.getTokenAccountBalance(ata);
+    return balanceInfo.value.uiAmount ?? 0;
   } catch (_) {
-    // scan failed — fall through
+    // ATA doesn't exist or derivation doesn't match
   }
 
   return 0;
