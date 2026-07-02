@@ -273,13 +273,13 @@ export default function Discover() {
     }
     const newName = prompt('Enter new username:');
     if (!newName) return;
-    const clean = newName.trim();
+    const clean = newName.trim().toLowerCase();
     if (!clean) return;
     if (clean.length < 3 || clean.length > 20) {
       alert('Username must be 3-20 characters');
       return;
     }
-    if (!/^[a-zA-Z0-9_]+$/.test(clean)) {
+    if (!/^[a-z0-9_]+$/.test(clean)) {
       alert('Username can only contain letters, numbers, and underscores');
       return;
     }

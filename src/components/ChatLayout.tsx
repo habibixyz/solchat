@@ -9,6 +9,7 @@ import { getMyThreads, getThread, openDMThread, sendDM, getThreadMessages, canon
 import { fetchNotifications, fetchUnreadCount, markAllRead } from '../services/notificationService';
 import { fetchReactions, fetchTrending, sendReaction } from '../services/reactionService';
 import SwapDrawer from './SwapDrawer';
+import TipModal from './TipModal';
 import { MINT_REGEX, TICKER_REGEX } from '../utils/tokenDetector';
 import { getAvatarByUsername } from '../utils/avatarCache';
 import '../styles/premium-chat.css';
@@ -318,6 +319,7 @@ export default function ChatLayout() {
   const [nameClaiming, setNameClaiming] = useState(false);
   const [activeMint, setActiveMint] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [tippedMessage, setTippedMessage] = useState<any>(null);
   const [whoToFollow, setWhoToFollow] = useState<any[]>([]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -717,8 +719,10 @@ export default function ChatLayout() {
     if (!wallet.signMessage) {
       return alert('Your wallet does not support message signing.');
     }
-    const name = prompt('Enter display name (3-20 letters, numbers, or underscores):')?.trim();
-    if (!name || name.length < 3 || name.length > 20 || !/^[a-zA-Z0-9_]+$/.test(name)) {
+    const rawName = prompt('Enter display name (3-20 letters, numbers, or underscores):')?.trim();
+    if (!rawName) return;
+    const name = rawName.toLowerCase();
+    if (name.length < 3 || name.length > 20 || !/^[a-z0-9_]+$/.test(name)) {
       return alert('Use 3-20 letters, numbers, or underscores');
     }
 
@@ -864,6 +868,11 @@ export default function ChatLayout() {
           </button>
         )}
         <button className="cl-btn" onClick={() => { setReplyTo(msg); setTimeout(() => inputRef.current?.focus(), 30); }}>reply</button>
+        {myWallet && msgWallet(msg) && msgWallet(msg).toLowerCase() !== myWallet.toLowerCase() && (
+          <button className="cl-btn" onClick={() => setTippedMessage(msg)} title="Tip $ANSEM">
+            <span style={{ color: '#00f7ff' }}>tip</span>
+          </button>
+        )}
       </div>
     );
   };
@@ -1437,6 +1446,15 @@ export default function ChatLayout() {
       </div>
       {isMobile && <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 58, zIndex: 20, background: '#0c0d10', borderTop: `1px solid ${T.line}`, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>{navItems.map(it => <button key={it.id} onClick={() => goPanel(it.id)} style={{ border: 0, background: 'transparent', color: panel === it.id ? T.green : T.dim, fontSize: 11 }}>{it.label}</button>)}</nav>}
       {activeMint && <SwapDrawer mint={activeMint} onClose={() => setActiveMint(null)} />}
+      {tippedMessage && (
+        <TipModal
+          isOpen={!!tippedMessage}
+          onClose={() => setTippedMessage(null)}
+          recipientWallet={msgWallet(tippedMessage)}
+          recipientUsername={displayNames[tippedMessage.id] || (!isFallbackName(tippedMessage.username) ? tippedMessage.username : '')}
+          senderUsername={profileName}
+        />
+      )}
 
       {/* ── Coin Chart Modal Overlay ── */}
       {selectedTokenForChart && (

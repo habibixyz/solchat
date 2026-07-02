@@ -16,6 +16,11 @@ const TOKENS: TokenInfo[] = [
     symbol: "USDC",
     address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkGkVY4j",
     decimals: 6,
+  },
+  {
+    symbol: "ANSEM",
+    address: "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+    decimals: 6,
   }
 ];
 

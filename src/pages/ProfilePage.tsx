@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { supabase } from '../lib/supabase';
+import TipModal from '../components/TipModal';
 
 interface UserRecord {
   wallet_address: string;
@@ -128,6 +129,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [tipModalOpen, setTipModalOpen] = useState(false);
 
   // ── Tabbed View States ──
   const [activeTab, setActiveTab] = useState<'signals' | 'likes' | 'notifications'>('signals');
@@ -312,14 +314,24 @@ export default function ProfilePage() {
               </div>
 
               {!isOwner && myWallet && (
-                <button 
-                  onClick={() => navigate(`/dm?dm=${user.wallet_address}`)} 
-                  style={{ marginTop: 16, width: '100%', height: 42, borderRadius: 10, border: '1px solid rgba(29,158,117,.35)', background: 'rgba(29,158,117,.12)', color: '#fff', cursor: 'pointer', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(29,158,117,0.15)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = T.green; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(29,158,117,.12)'; }}
-                >
-                  💬 Send Direct Message
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
+                  <button 
+                    onClick={() => navigate(`/dm?dm=${user.wallet_address}`)} 
+                    style={{ width: '100%', height: 42, borderRadius: 10, border: '1px solid rgba(29,158,117,.35)', background: 'rgba(29,158,117,.12)', color: '#fff', cursor: 'pointer', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(29,158,117,0.15)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = T.green; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(29,158,117,.12)'; }}
+                  >
+                    💬 Send Direct Message
+                  </button>
+                  <button 
+                    onClick={() => setTipModalOpen(true)} 
+                    style={{ width: '100%', height: 42, borderRadius: 10, border: '1px solid rgba(0, 247, 255, .35)', background: 'rgba(0, 247, 255, .12)', color: '#fff', cursor: 'pointer', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(0, 247, 255, 0.15)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#00f7ff'; e.currentTarget.style.color = '#050a19'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0, 247, 255, .12)'; e.currentTarget.style.color = '#fff'; }}
+                  >
+                    💸 Tip $ANSEM
+                  </button>
+                </div>
               )}
 
               {user.twitter_handle && (
@@ -453,6 +465,13 @@ export default function ProfilePage() {
           </section>
         </div>
       </div>
+      <TipModal
+        isOpen={tipModalOpen}
+        onClose={() => setTipModalOpen(false)}
+        recipientWallet={user.wallet_address}
+        recipientUsername={user.username}
+        senderUsername={localStorage.getItem(`solchat_name_${myWallet}`) || 'guest'}
+      />
     </div>
   );
 }

@@ -1,7 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 
-const dbPath = path.resolve('mining_db.json');
+const dbPath = process.env.DATA_PATH 
+  ? path.join(process.env.DATA_PATH, 'mining_db.json')
+  : path.resolve('mining_db.json');
 
 export function loadDb() {
   try {

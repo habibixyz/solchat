@@ -320,13 +320,13 @@ export default function MiningPage() {
     }
     const newName = prompt('Enter new username:');
     if (!newName) return;
-    const clean = newName.trim();
+    const clean = newName.trim().toLowerCase();
     if (!clean) return;
     if (clean.length < 3 || clean.length > 20) {
       alert('Username must be 3-20 characters');
       return;
     }
-    if (!/^[a-zA-Z0-9_]+$/.test(clean)) {
+    if (!/^[a-z0-9_]+$/.test(clean)) {
       alert('Username can only contain letters, numbers, and underscores');
       return;
     }
@@ -1756,10 +1756,6 @@ export default function MiningPage() {
                 {isSyncing ? 'SYNCING…' : '☁️ SYNC'}
               </button>
             )}
-            <button onClick={handleMintBooster} disabled={hasSigilNft} className="sigil-mint-btn"
-              style={{ flex: 2, background: hasSigilNft ? 'rgba(255,255,255,0.04)' : 'var(--mine-neon-orange)', color: hasSigilNft ? '#7f8da1' : '#fff', cursor: hasSigilNft ? 'default' : 'pointer', fontSize: 10 }}>
-              {hasSigilNft ? '⚡ SIGIL ACTIVE' : '⚡ MINT SIGIL BOOST (0.001 SOL)'}
-            </button>
           </div>
 
         </div>
