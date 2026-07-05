@@ -86,5 +86,8 @@
   "bugs": {
     "url": "https://github.com/habibixyz/solchat/issues"
   },
-  "homepage": "https://github.com/habibixyz/solchat#readme"
+  "homepage": "https://github.com/habibixyz/solchat#readme",
+  "overrides": {
+    "zod": "^3.23.8"
+  }
 }
