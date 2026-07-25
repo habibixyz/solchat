@@ -15,10 +15,6 @@ export function injectBottomNav() {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
       <span>$ANSEM</span>
     </a>
-    <a href="/bullpen" data-navlink>
-      <svg viewBox="0 0 24 24"><path d="M12 2l2.9 6 6.6.9-4.8 4.7 1.1 6.6L12 17.1l-5.8 3.1 1.1-6.6-4.8-4.7 6.6-.9L12 2z"/></svg>
-      <span>Rewards</span>
-    </a>
     <a href="/mine" data-navlink>
       <svg viewBox="0 0 24 24"><path d="M14.5 2L22 9.5m-3.5-4L6.5 17.5M3 21l3.5-3.5M19 5l-2.5 2.5m-8 8L6 18"/></svg>
       <span>Mine</span>
